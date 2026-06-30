@@ -1,0 +1,58 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { type Message } from "@/lib/types";
+import { MessageItem } from "./MessageItem";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface MessageListProps {
+  messages: Message[];
+}
+
+export function MessageList({ messages }: MessageListProps) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // 自动滚动到底部
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  if (messages.length === 0) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+            <svg
+              className="h-8 w-8 text-primary"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"
+              />
+            </svg>
+          </div>
+          <h2 className="text-xl font-medium">有什么可以帮你的？</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            在下方输入消息开始对话
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ScrollArea className="flex-1 px-4">
+      <div className="mx-auto max-w-3xl space-y-4 py-6">
+        {messages.map((msg) => (
+          <MessageItem key={msg.id} message={msg} />
+        ))}
+        <div ref={bottomRef} />
+      </div>
+    </ScrollArea>
+  );
+}
