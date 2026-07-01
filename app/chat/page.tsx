@@ -94,48 +94,46 @@ export default function ChatPage() {
         {/* 会话列表 */}
         <ScrollArea className="flex-1">
           <div className="space-y-0.5 p-2">
-            {sessions.length === 0 ? (
+            {sessions.length === 0 && (
               <p className="p-4 text-center text-sm text-muted-foreground">
                 暂无会话
               </p>
-            ) : (
-              sessions.map((s) => (
-                <div
-                  key={s.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => {
+            )}
+            {sessions.map((s) => (
+              <div key={s.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  setActiveId(s.id);
+                  setRefreshKey((k) => k + 1);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
                     setActiveId(s.id);
                     setRefreshKey((k) => k + 1);
+                  }
+                }}
+                className={`group flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                  activeId === s.id
+                    ? "bg-primary/10 text-primary"
+                    : "text-foreground hover:bg-muted"
+                }`}
+              >
+                <MessageSquare className="h-4 w-4 shrink-0" />
+                <span className="flex-1 truncate">{s.title || "新对话"}</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(s.id);
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setActiveId(s.id);
-                      setRefreshKey((k) => k + 1);
-                    }
-                  }}
-                  className={`group flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                    activeId === s.id
-                      ? "bg-primary/10 text-primary"
-                      : "text-foreground hover:bg-muted"
-                  }`}
+                  className="shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                  title="删除会话"
                 >
-                  <MessageSquare className="h-4 w-4 shrink-0" />
-                  <span className="flex-1 truncate">{s.title || "新对话"}</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(s.id);
-                    }}
-                    className="shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-                    title="删除会话"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))
-            )}
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
         </ScrollArea>
 

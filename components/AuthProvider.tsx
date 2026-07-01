@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearAuth();
           setTokenState(null);
         } else {
-          setUserState({ id: payload.sub || "", username: payload.username || "用户" });
+          setUserState({ id: payload.user_id || "", username: payload.display_name || "用户" });
         }
       } catch {
         clearAuth();

@@ -1,10 +1,13 @@
 // ================================================================
 // SSE 客户端 — 流式事件解析器（fetch ReadableStream）
-// 所有请求通过 Next.js rewrite 代理到后端，避免 CORS
+// SSE 直连后端避免 Turbopack rewrite 代理缓冲，CORS 已在后端配置
 // ================================================================
 
 import { getToken, clearAuth } from "./auth";
 import type { ChatRequest, SSEMessage } from "./types";
+
+/** SSE 需直连后端，不走 Next.js rewrite（Turbopack 代理会缓冲流） */
+const SSE_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8009";
 
 export type SSECallback = (event: SSEMessage) => void;
 export type SSEDoneCallback = () => void;
@@ -27,7 +30,7 @@ export function streamChat(
   const token = getToken();
   const controller = new AbortController();
 
-  const url = `/api/v1/chat`;
+  const url = `${SSE_BASE}/api/v1/chat`;
 
   fetch(url, {
     method: "POST",

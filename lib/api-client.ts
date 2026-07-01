@@ -1,11 +1,25 @@
 // ================================================================
 // API 客户端 — 封装 HTTP 请求（fetch + JWT auth header）
 // 所有请求通过 Next.js rewrite 代理到后端，避免 CORS
-// 后端地址在 next.config.ts → rewrites 中配置
 // ================================================================
 
 import { getToken, clearAuth } from "./auth";
-import type { LoginRequest, LoginResponse, Session, Message } from "./types";
+import type {
+  LoginRequest,
+  LoginResponse,
+  Session,
+  Message,
+  LoginResponseRaw,
+  SessionsResponseRaw,
+  SessionRaw,
+  MessagesResponseRaw,
+} from "./types";
+import {
+  adaptLoginResponse,
+  adaptSessionsResponse,
+  adaptSession,
+  adaptMessagesResponse,
+} from "./types";
 
 class ApiError extends Error {
   status: number;
@@ -31,7 +45,7 @@ async function request<T>(
     (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${path}`, {
+  const res = await fetch(path, {
     ...options,
     headers,
   });
@@ -55,23 +69,27 @@ async function request<T>(
 // ---- 认证 ----
 
 export async function login(data: LoginRequest): Promise<LoginResponse> {
-  return request<LoginResponse>("/api/v1/auth/login", {
+  const raw = await request<LoginResponseRaw>("/api/v1/auth/login", {
     method: "POST",
     body: JSON.stringify(data),
   });
+  return adaptLoginResponse(raw);
 }
 
 // ---- 会话管理 ----
 
 export async function getSessions(): Promise<Session[]> {
-  return request<Session[]>("/api/v1/sessions");
+  // 后端返回 { sessions: [...] } 包装对象，需要解包
+  const raw = await request<SessionsResponseRaw>("/api/v1/sessions");
+  return adaptSessionsResponse(raw);
 }
 
 export async function createSession(title?: string): Promise<Session> {
-  return request<Session>("/api/v1/sessions", {
+  const raw = await request<SessionRaw>("/api/v1/sessions", {
     method: "POST",
     body: JSON.stringify({ title: title || "新对话" }),
   });
+  return adaptSession(raw);
 }
 
 export async function deleteSession(id: string): Promise<void> {
@@ -79,7 +97,9 @@ export async function deleteSession(id: string): Promise<void> {
 }
 
 export async function getSessionMessages(id: string): Promise<Message[]> {
-  return request<Message[]>(`/api/v1/sessions/${id}/messages`);
+  // 后端返回 { messages: [...] } 包装对象，需要解包
+  const raw = await request<MessagesResponseRaw>(`/api/v1/sessions/${id}/messages`);
+  return adaptMessagesResponse(raw);
 }
 
 export { ApiError };
