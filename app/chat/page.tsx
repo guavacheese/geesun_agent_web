@@ -5,6 +5,7 @@ import { getSessions, createSession, deleteSession, pinSession, unpinSession } f
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { ChatArea } from "./components/ChatArea";
+import { SkillList } from "./components/SkillList";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, MessageSquare, Sun, Moon, Pin, PinOff } from "lucide-react";
@@ -125,6 +126,9 @@ export default function ChatPage() {
             </Button>
           </div>
         </div>
+
+        {/* Skills */}
+        <SkillList />
 
         {/* 会话列表 */}
         <ScrollArea className="flex-1">

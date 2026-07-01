@@ -149,6 +149,57 @@ geesun_agent_web/
 - 无需新建数据库表，持久化逻辑与现有 session 存储一致
 - 列表排序：`pinned` 优先 → `updated_at` 倒序
 
+### 2.5. 左侧 Skill 区域（P6）
+
+Skill 区域位于 pinned 会话上方，展示当前用户可用的所有 skill。
+
+#### 数据源
+Skill 以文件系统目录存储，后端已有接口：
+```
+GET    /api/v1/skills?user_id=XXX                → {system: [...], agent: [...], user: [...]}
+POST   /api/v1/skill/upload                      → 上传 zip 包或多文件
+DELETE /api/v1/skill/{name}?user_id=XXX           → 删除用户上传的 skill
+```
+新增接口：
+```
+GET    /api/v1/skill/{name}/files?user_id=XXX      → 浏览 skill 内文件列表
+GET    /api/v1/skill/{name}/file?user_id=XXX&path= → 读取单个文件内容
+```
+
+#### 分类展示
+| 分类 | 来源 | 权限 |
+|------|------|------|
+| 🏭 系统预装 | `/skills/__system__/` | 只读，不可删 |
+| 🤖 Agent 自创 | `/skills/__agent__/` | 只读，不可删 |
+| 👤 用户上传 | `/skills/__user_{id}__/` | 可浏览、可删除、可上传 |
+
+#### 功能
+- 默认折叠，点击分类展开
+- 展开后显示 skill 列表（名称 + 描述）
+- 点击 skill 展开文件列表（调用 `/files` 端点）
+- 点击文件显示内容预览（调用 `/file` 端点，只读弹窗）
+- 用户上传的分类有 + 上传按钮和 🗑 删除按钮
+- 上传弹窗：支持选择 zip 包或多个文件
+
+#### 侧栏布局
+```
+┌─────────────────────┐
+│ 🧩 Skills        +  │  ← 上传按钮（仅用户分类展开时显示）
+│   🤖 Agent 自创 (3)  │
+│     └ weather-checker│
+│        └ SKILL.md    │
+│        └ scripts/    │
+│   👤 用户上传 (2)  🗑│
+│     └ plc-auditor    │
+│   🏭 系统预装 (1)    │
+├─────────────────────┤
+│ 📌 已固定           │
+│   📌 汉中天气...    │
+├─────────────────────┤
+│ 💬 新对话           │
+└─────────────────────┘
+```
+
 ### 3. 右侧聊天区域 — ChatArea / MessageList（P3）
 
 - 切换会话时调用 `GET /api/v1/sessions/{id}/messages` 加载历史消息

@@ -90,6 +90,35 @@ export interface ModelInfo {
   name: string;
 }
 
+/** Skill 信息 */
+export interface SkillInfo {
+  name: string;
+  description: string;
+  source: "system" | "agent" | "user";
+}
+
+/** Skill 列表响应 */
+export interface SkillsResponse {
+  system: SkillInfo[];
+  agent: SkillInfo[];
+  user: SkillInfo[];
+}
+
+/** Skill 文件列表 */
+export interface SkillFilesResponse {
+  skill_name: string;
+  source: string;
+  files: { path: string; size: number }[];
+  count: number;
+}
+
+/** Skill 文件内容 */
+export interface SkillFileContent {
+  skill_name: string;
+  path: string;
+  content: string;
+}
+
 // ---- 后端原始返回类型（字段名与后端一致） ----
 
 export interface LoginResponseRaw {

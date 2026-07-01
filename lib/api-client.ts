@@ -13,6 +13,9 @@ import type {
   SessionsResponseRaw,
   SessionRaw,
   MessagesResponseRaw,
+  SkillsResponse,
+  SkillFilesResponse,
+  SkillFileContent,
 } from "./types";
 import {
   adaptLoginResponse,
@@ -110,6 +113,39 @@ export async function getSessionMessages(id: string): Promise<Message[]> {
   // 后端返回 { messages: [...] } 包装对象，需要解包
   const raw = await request<MessagesResponseRaw>(`/api/v1/sessions/${id}/messages`);
   return adaptMessagesResponse(raw);
+}
+
+// ---- Skills ----
+
+export async function getSkills(userId: string): Promise<SkillsResponse> {
+  return request<SkillsResponse>(`/api/v1/skills?user_id=${encodeURIComponent(userId)}`);
+}
+
+export async function getSkillFiles(
+  skillName: string,
+  userId: string,
+  source: string
+): Promise<SkillFilesResponse> {
+  return request<SkillFilesResponse>(
+    `/api/v1/skill/${encodeURIComponent(skillName)}/files?user_id=${encodeURIComponent(userId)}&source=${source}`
+  );
+}
+
+export async function getSkillFileContent(
+  skillName: string,
+  userId: string,
+  source: string,
+  filePath: string
+): Promise<SkillFileContent> {
+  return request<SkillFileContent>(
+    `/api/v1/skill/${encodeURIComponent(skillName)}/file?user_id=${encodeURIComponent(userId)}&source=${source}&path=${encodeURIComponent(filePath)}`
+  );
+}
+
+export async function deleteSkill(skillName: string, userId: string): Promise<void> {
+  await request(`/api/v1/skill/${encodeURIComponent(skillName)}?user_id=${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+  });
 }
 
 export { ApiError };
