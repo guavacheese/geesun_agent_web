@@ -8,13 +8,14 @@ import { ChatArea } from "./components/ChatArea";
 import { SkillList } from "./components/SkillList";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, MessageSquare, Sun, Moon, Pin, PinOff } from "lucide-react";
+import { Plus, Trash2, MessageSquare, Sun, Moon, Pin, PinOff, ChevronRight, ChevronDown } from "lucide-react";
 import type { Session } from "@/lib/types";
 
 export default function ChatPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [pinnedOpen, setPinnedOpen] = useState(true);
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
@@ -142,21 +143,38 @@ export default function ChatPage() {
             {/* Pinned 区域 */}
             {pinned.length > 0 && (
               <>
-                <p className="px-3 pb-1 pt-0.5 text-[11px] font-medium text-muted-foreground">
-                  已固定
-                </p>
-                {pinned.map((s) => (
-                  <SessionRow
-                    key={s.id}
-                    session={s}
-                    active={activeId === s.id}
-                    onSelect={() => { setActiveId(s.id); setRefreshKey((k) => k + 1); }}
-                    onDelete={handleDelete}
-                    onPin={handlePin}
-                    onUnpin={handleUnpin}
-                  />
-                ))}
-                <div className="mx-2 my-1 border-t" />
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setPinnedOpen(!pinnedOpen)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPinnedOpen(!pinnedOpen); } }}
+                  className="flex w-full cursor-pointer items-center gap-2.5 rounded px-1 py-2 text-sm font-semibold text-foreground hover:bg-muted"
+                >
+                  {pinnedOpen ? (
+                    <ChevronDown className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 shrink-0" />
+                  )}
+                  <Pin className="h-4 w-4 shrink-0 text-accent" />
+                  <span>已固定</span>
+                  <span className="text-xs font-normal text-muted-foreground">({pinned.length})</span>
+                </div>
+                {pinnedOpen && (
+                  <>
+                    {pinned.map((s) => (
+                      <SessionRow
+                        key={s.id}
+                        session={s}
+                        active={activeId === s.id}
+                        onSelect={() => { setActiveId(s.id); setRefreshKey((k) => k + 1); }}
+                        onDelete={handleDelete}
+                        onPin={handlePin}
+                        onUnpin={handleUnpin}
+                      />
+                    ))}
+                    <div className="mx-2 my-1 border-t" />
+                  </>
+                )}
               </>
             )}
 

@@ -252,20 +252,23 @@ export function SkillList() {
       )}
 
       {/* Sidebar 区域 */}
-      <div className="border-b pb-2">
+      <div className="border-b px-2 pb-2">
         <div
           role="button"
           tabIndex={0}
           onClick={() => setExpandedSource(expandedSource === "skills" ? null : "skills")}
-          className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+          className="flex w-full cursor-pointer items-center gap-2.5 rounded px-1 py-2 text-sm font-semibold text-foreground hover:bg-muted"
         >
           {expandedSource === "skills" ? (
-            <ChevronDown className="h-3.5 w-3.5" />
+            <ChevronDown className="h-4 w-4 shrink-0" />
           ) : (
-            <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronRight className="h-4 w-4 shrink-0" />
           )}
-          <Puzzle className="h-3.5 w-3.5" />
+          <Puzzle className="h-4 w-4 shrink-0" />
           <span>Skills</span>
+          <span className="text-xs font-normal text-muted-foreground">
+            ({skills.system.length + skills.agent.length + skills.user.length})
+          </span>
         </div>
 
         {expandedSource === "skills" &&
