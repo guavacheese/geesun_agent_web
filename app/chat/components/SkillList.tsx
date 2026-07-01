@@ -64,7 +64,7 @@ function FilePreviewModal({
           </button>
         </div>
         <pre className="max-h-[60vh] overflow-auto rounded bg-muted p-3 text-xs whitespace-pre-wrap break-all">
-          {content}
+          {content || "(空文件)"}
         </pre>
       </div>
     </div>
@@ -130,8 +130,8 @@ export function SkillList() {
     try {
       const result = await getSkillFileContent(skillName, userId, source, filePath);
       setPreview({ path: filePath, content: result.content });
-    } catch {
-      // ignore
+    } catch (e) {
+      console.error("读取 skill 文件失败:", e);
     }
   };
 
@@ -153,6 +153,11 @@ export function SkillList() {
     setUploadError("");
 
     try {
+      // 调试：检查文件内容
+      for (let i = 0; i < uploadFiles.length; i++) {
+        console.log(`上传文件[${i}]: ${uploadFiles[i].name}, 大小: ${uploadFiles[i].size} bytes`);
+      }
+
       const formData = new FormData();
       formData.append("skill_name", uploadName.trim());
       formData.append("user_id", userId);
@@ -162,9 +167,14 @@ export function SkillList() {
 
       const token = getToken();
       const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8009";
+
+      // 不要手动传 Content-Type，让浏览器自动设 multipart boundary
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const res = await fetch(`${API_BASE}/api/v1/skill/upload`, {
         method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers,
         body: formData,
       });
 
