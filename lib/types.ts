@@ -155,9 +155,10 @@ export function adaptSession(raw: SessionRaw): Session {
   };
 }
 
+let _msgIdx = 0;
 export function adaptMessagesResponse(raw: MessagesResponseRaw): Message[] {
-  return raw.messages.map((m) => ({
-    id: m.id || "",
+  return raw.messages.map((m, i) => ({
+    id: m.id || `msg-${_msgIdx++}-${i}`,
     role: m.role as MessageRole,
     content: m.content,
     created_at: m.created_at,

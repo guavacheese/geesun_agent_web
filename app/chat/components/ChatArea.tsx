@@ -13,9 +13,11 @@ import { AgentStatusBar } from "./AgentStatusBar";
 interface ChatAreaProps {
   sessionId: string;
   refreshKey: number;
+  onStreamDone?: () => void;
+  onFirstMessage?: (content: string) => void;
 }
 
-export function ChatArea({ sessionId, refreshKey }: ChatAreaProps) {
+export function ChatArea({ sessionId, refreshKey, onStreamDone, onFirstMessage }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -24,6 +26,12 @@ export function ChatArea({ sessionId, refreshKey }: ChatAreaProps) {
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
   const { user } = useAuth();
   const abortRef = useRef<(() => void) | null>(null);
+  const hasSentRef = useRef(false);
+
+  // 切换 session 时重置 hasSent 标记
+  useEffect(() => {
+    hasSentRef.current = false;
+  }, [sessionId, refreshKey]);
 
   // 加载历史消息
   useEffect(() => {
@@ -65,6 +73,12 @@ export function ChatArea({ sessionId, refreshKey }: ChatAreaProps) {
         role: "ai",
         content: "",
       };
+
+      // 首条消息立即更新标题
+      if (!hasSentRef.current) {
+        hasSentRef.current = true;
+        onFirstMessage?.(content);
+      }
 
       setMessages((prev) => [...prev, userMsg, aiMsg]);
       setIsStreaming(true);
@@ -116,19 +130,40 @@ export function ChatArea({ sessionId, refreshKey }: ChatAreaProps) {
                 break;
 
               case "tool_result":
-                setToolCalls((prev) =>
-                  prev.map((tc) =>
-                    tc.id === event.id
-                      ? { ...tc, status: event.success ? "success" : "error", error: event.error }
-                      : tc
-                  )
-                );
+                setToolCalls((prev) => {
+                  // 优先按 id 匹配；后端 tool_result 不发 id 时按 tool 名称匹配最近一张 running 卡片
+                  const idx = prev.findIndex((tc) => tc.id === event.id);
+                  const targetIdx =
+                    idx >= 0
+                      ? idx
+                      : (() => {
+                          for (let i = prev.length - 1; i >= 0; i--) {
+                            if (prev[i].status === "running" && prev[i].tool === event.tool) {
+                              return i;
+                            }
+                          }
+                          return -1;
+                        })();
+                  if (targetIdx < 0) return prev;
+                  const updated = [...prev];
+                  updated[targetIdx] = {
+                    ...updated[targetIdx],
+                    status: event.success ? "success" : "error",
+                    error: event.error,
+                  };
+                  return updated;
+                });
                 break;
             }
           },
           onDone: () => {
             setIsStreaming(false);
             setAgentStatus("idle");
+            // 流结束兜底：把残留的 running 卡片标为 success，避免永久转圈
+            setToolCalls((prev) =>
+              prev.map((tc) => (tc.status === "running" ? { ...tc, status: "success" } : tc))
+            );
+            onStreamDone?.();
           },
           onError: (err) => {
             setIsStreaming(false);
