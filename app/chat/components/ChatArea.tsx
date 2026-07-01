@@ -55,16 +55,20 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
     (content: string) => {
       if (isStreaming) return;
 
+      const now = new Date().toISOString();
+
       const userMsg: Message = {
         id: `user-${Date.now()}`,
         role: "user",
         content,
+        created_at: now,
       };
 
       const aiMsg: Message = {
         id: `ai-${Date.now()}`,
         role: "ai",
         content: "",
+        created_at: now,
       };
 
       setMessages((prev) => [...prev, userMsg, aiMsg]);

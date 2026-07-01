@@ -6,12 +6,24 @@ interface MessageItemProps {
   message: Message;
 }
 
+function formatTime(isoStr?: string): string {
+  if (!isoStr) return "";
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+}
+
 export function MessageItem({ message }: MessageItemProps) {
   const isUser = message.role === "user";
   const isTool = message.role === "tool";
 
   if (isTool) {
-    // Tool 消息不独立展示（由 ToolCallCard 嵌入）
     return null;
   }
 
@@ -25,6 +37,13 @@ export function MessageItem({ message }: MessageItemProps) {
         }`}
       >
         <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        {message.created_at && (
+          <p className={`mt-1.5 text-[11px] ${
+            isUser ? "text-primary-foreground/60" : "text-muted-foreground"
+          }`}>
+            {formatTime(message.created_at)}
+          </p>
+        )}
       </div>
     </div>
   );
