@@ -49,8 +49,10 @@ POST /api/v1/auth/login      { "username": "...", "password": "..." }
 
 ### 会话管理
 ```
-GET    /api/v1/sessions                   → [{ "id": "...", "title": "...", ... }]
+GET    /api/v1/sessions                   → [{ "id": "...", "title": "...", "pinned": false, ... }]
 POST   /api/v1/sessions                   → { "id": "...", "title": "..." }
+PATCH  /api/v1/sessions/{id}/pin          → { "session_id": "...", "pinned": true, ... }
+PATCH  /api/v1/sessions/{id}/unpin        → { "session_id": "...", "pinned": false, ... }
 DELETE /api/v1/sessions/{id}              → { "ok": true }
 GET    /api/v1/sessions/{id}/messages     → [{ "role": "user"|"ai"|"tool", "content": "...", ... }]
 ```
@@ -132,11 +134,20 @@ geesun_agent_web/
 ### 2. 左侧会话列表 — SessionList（P4）
 
 - 加载时调用 `GET /api/v1/sessions` 获取会话列表
-- 每条会话显示标题和最后更新时间
+- pinned 会话在顶部 "已固定" 分组中，带 📌 图标，按 pin 时间排序
+- 未固定会话按 `updated_at` 倒序排在下方
+- 每条会话 hover 时显示 pin/unpin 按钮和删除按钮
 - 点击切换当前会话（更新右侧消息区域）
 - 新建会话按钮 → `POST /api/v1/sessions` → 加入列表并自动激活
+- pin 按钮 → `PATCH /api/v1/sessions/{id}/pin` → 移到 pinned 分组
+- unpin 按钮 → `PATCH /api/v1/sessions/{id}/unpin` → 回到普通分组
 - 删除按钮（确认后）→ `DELETE /api/v1/sessions/{id}` → 从列表移除
 - 当前高亮选中的会话
+
+### Pin 数据存储
+- 后端复用 LangGraph PostgresStore，在 session dict 中加 `pinned: bool` 和 `pinned_at` 字段
+- 无需新建数据库表，持久化逻辑与现有 session 存储一致
+- 列表排序：`pinned` 优先 → `updated_at` 倒序
 
 ### 3. 右侧聊天区域 — ChatArea / MessageList（P3）
 

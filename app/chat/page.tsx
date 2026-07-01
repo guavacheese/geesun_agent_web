@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getSessions, createSession, deleteSession } from "@/lib/api-client";
+import { getSessions, createSession, deleteSession, pinSession, unpinSession } from "@/lib/api-client";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { ChatArea } from "./components/ChatArea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, MessageSquare, Sun, Moon } from "lucide-react";
+import { Plus, Trash2, MessageSquare, Sun, Moon, Pin, PinOff } from "lucide-react";
 import type { Session } from "@/lib/types";
 
 export default function ChatPage() {
@@ -56,6 +56,31 @@ export default function ChatPage() {
     },
     [activeId]
   );
+
+  const handlePin = useCallback(async (id: string) => {
+    try {
+      const updated = await pinSession(id);
+      setSessions((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, pinned: true } : s))
+      );
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleUnpin = useCallback(async (id: string) => {
+    try {
+      const updated = await unpinSession(id);
+      setSessions((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, pinned: false } : s))
+      );
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const pinned = sessions.filter((s) => s.pinned);
+  const unpinned = sessions.filter((s) => !s.pinned);
 
   // 流式对话完成后刷新会话列表（后端 [DONE] 后异步保存标题）
   const handleStreamDone = useCallback(() => {
@@ -109,40 +134,38 @@ export default function ChatPage() {
                 暂无会话
               </p>
             )}
-            {sessions.map((s) => (
-              <div key={s.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => {
-                  setActiveId(s.id);
-                  setRefreshKey((k) => k + 1);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActiveId(s.id);
-                    setRefreshKey((k) => k + 1);
-                  }
-                }}
-                className={`group flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                  activeId === s.id
-                    ? "bg-primary/10 text-primary"
-                    : "text-foreground hover:bg-muted"
-                }`}
-              >
-                <MessageSquare className="h-4 w-4 shrink-0" />
-                <span className="flex-1 truncate">{s.title || "新对话"}</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(s.id);
-                  }}
-                  className="shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-                  title="删除会话"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
+
+            {/* Pinned 区域 */}
+            {pinned.length > 0 && (
+              <>
+                <p className="px-3 pb-1 pt-0.5 text-[11px] font-medium text-muted-foreground">
+                  已固定
+                </p>
+                {pinned.map((s) => (
+                  <SessionRow
+                    key={s.id}
+                    session={s}
+                    active={activeId === s.id}
+                    onSelect={() => { setActiveId(s.id); setRefreshKey((k) => k + 1); }}
+                    onDelete={handleDelete}
+                    onPin={handlePin}
+                    onUnpin={handleUnpin}
+                  />
+                ))}
+                <div className="mx-2 my-1 border-t" />
+              </>
+            )}
+
+            {unpinned.map((s) => (
+              <SessionRow
+                key={s.id}
+                session={s}
+                active={activeId === s.id}
+                onSelect={() => { setActiveId(s.id); setRefreshKey((k) => k + 1); }}
+                onDelete={handleDelete}
+                onPin={handlePin}
+                onUnpin={handleUnpin}
+              />
             ))}
           </div>
         </ScrollArea>
@@ -194,6 +217,77 @@ export default function ChatPage() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+// ─── SessionRow 子组件 ───
+
+interface SessionRowProps {
+  session: Session;
+  active: boolean;
+  onSelect: () => void;
+  onDelete: (id: string) => void;
+  onPin: (id: string) => void;
+  onUnpin: (id: string) => void;
+}
+
+function SessionRow({ session, active, onSelect, onDelete, onPin, onUnpin }: SessionRowProps) {
+  const { id, pinned } = session;
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      className={`group flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+        active
+          ? "bg-primary/10 text-primary"
+          : "text-foreground hover:bg-muted"
+      }`}
+    >
+      {pinned ? (
+        <Pin className="h-4 w-4 shrink-0 text-accent" />
+      ) : (
+        <MessageSquare className="h-4 w-4 shrink-0" />
+      )}
+      <span className="flex-1 truncate">{session.title || "新对话"}</span>
+
+      {/* pin / unpin 按钮 */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          pinned ? onUnpin(id) : onPin(id);
+        }}
+        className={`shrink-0 rounded p-0.5 transition-opacity hover:bg-accent/10 hover:text-accent ${
+          pinned ? "" : "opacity-0 group-hover:opacity-100"
+        }`}
+        title={pinned ? "取消固定" : "固定会话"}
+      >
+        {pinned ? (
+          <PinOff className="h-3.5 w-3.5" />
+        ) : (
+          <Pin className="h-3.5 w-3.5" />
+        )}
+      </button>
+
+      {/* 删除按钮 */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(id);
+        }}
+        className="shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+        title="删除会话"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }

@@ -27,6 +27,7 @@ export interface LoginResponse {
 export interface Session {
   id: string;
   title: string;
+  pinned?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -104,6 +105,7 @@ export interface LoginResponseRaw {
 export interface SessionRaw {
   session_id: string;
   title: string;
+  pinned?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -141,6 +143,7 @@ export function adaptSessionsResponse(raw: SessionsResponseRaw): Session[] {
   return raw.sessions.map((s) => ({
     id: s.session_id,
     title: s.title,
+    pinned: s.pinned,
     created_at: s.created_at,
     updated_at: s.updated_at,
   }));
@@ -150,6 +153,7 @@ export function adaptSession(raw: SessionRaw): Session {
   return {
     id: raw.session_id,
     title: raw.title,
+    pinned: raw.pinned,
     created_at: raw.created_at,
     updated_at: raw.updated_at,
   };

@@ -96,6 +96,16 @@ export async function deleteSession(id: string): Promise<void> {
   await request(`/api/v1/sessions/${id}`, { method: "DELETE" });
 }
 
+export async function pinSession(id: string): Promise<Session> {
+  const raw = await request<SessionRaw>(`/api/v1/sessions/${id}/pin`, { method: "PATCH" });
+  return adaptSession(raw);
+}
+
+export async function unpinSession(id: string): Promise<Session> {
+  const raw = await request<SessionRaw>(`/api/v1/sessions/${id}/unpin`, { method: "PATCH" });
+  return adaptSession(raw);
+}
+
 export async function getSessionMessages(id: string): Promise<Message[]> {
   // 后端返回 { messages: [...] } 包装对象，需要解包
   const raw = await request<MessagesResponseRaw>(`/api/v1/sessions/${id}/messages`);
