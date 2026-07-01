@@ -14,10 +14,9 @@ interface ChatAreaProps {
   sessionId: string;
   refreshKey: number;
   onStreamDone?: () => void;
-  onFirstMessage?: (content: string) => void;
 }
 
-export function ChatArea({ sessionId, refreshKey, onStreamDone, onFirstMessage }: ChatAreaProps) {
+export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -26,12 +25,6 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone, onFirstMessage }
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
   const { user } = useAuth();
   const abortRef = useRef<(() => void) | null>(null);
-  const hasSentRef = useRef(false);
-
-  // 切换 session 时重置 hasSent 标记
-  useEffect(() => {
-    hasSentRef.current = false;
-  }, [sessionId, refreshKey]);
 
   // 加载历史消息
   useEffect(() => {
@@ -73,12 +66,6 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone, onFirstMessage }
         role: "ai",
         content: "",
       };
-
-      // 首条消息立即更新标题
-      if (!hasSentRef.current) {
-        hasSentRef.current = true;
-        onFirstMessage?.(content);
-      }
 
       setMessages((prev) => [...prev, userMsg, aiMsg]);
       setIsStreaming(true);

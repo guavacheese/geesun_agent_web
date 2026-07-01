@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getSessions, createSession, deleteSession } from "@/lib/api-client";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ChatArea } from "./components/ChatArea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -17,12 +16,6 @@ export default function ChatPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const activeIdRef = useRef<string | null>(null);
-
-  // 同步 ref，避免 useCallback 闭包拿到旧 activeId
-  useEffect(() => {
-    activeIdRef.current = activeId;
-  }, [activeId]);
 
   // 加载会话列表
   useEffect(() => {
@@ -64,32 +57,15 @@ export default function ChatPage() {
     [activeId]
   );
 
-  // 流式对话完成后刷新会话列表（标题可能更新）
-  // 后端 [DONE] 之后才异步保存标题，延迟 800ms 等待写入完成
-  // 用 merge 而非 replace，防止乐观更新被旧数据覆盖
+  // 流式对话完成后刷新会话列表（后端 [DONE] 后异步保存标题）
   const handleStreamDone = useCallback(() => {
     setTimeout(() => {
       getSessions()
         .then((list) => {
-          if (!Array.isArray(list)) return;
-          setSessions((prev) =>
-            prev.map((s) => {
-              const updated = list.find((l) => l.id === s.id);
-              return updated && updated.title !== "新对话" ? { ...s, title: updated.title } : s;
-            })
-          );
+          if (Array.isArray(list)) setSessions(list);
         })
         .catch(() => {});
     }, 800);
-  }, []);
-
-  // 首条消息立即更新侧栏标题（乐观更新，无需等后端）
-  const handleFirstMessage = useCallback((content: string) => {
-    const title = content.length > 30 ? content.slice(0, 30) + "..." : content;
-    const id = activeIdRef.current;
-    setSessions((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, title } : s))
-    );
   }, []);
 
   return (
@@ -187,7 +163,7 @@ export default function ChatPage() {
       {/* 右侧聊天区域 */}
       <main className="flex flex-1 flex-col overflow-hidden">
         {activeId ? (
-          <ChatArea key={`${activeId}-${refreshKey}`} sessionId={activeId} refreshKey={refreshKey} onStreamDone={handleStreamDone} onFirstMessage={handleFirstMessage} />
+          <ChatArea key={`${activeId}-${refreshKey}`} sessionId={activeId} refreshKey={refreshKey} onStreamDone={handleStreamDone} />
         ) : (
           <div className="flex flex-1 items-center justify-center">
             <div className="text-center">
