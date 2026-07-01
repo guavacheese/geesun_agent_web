@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import { type Message } from "@/lib/types";
 import { MessageItem } from "./MessageItem";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MessageListProps {
   messages: Message[];
@@ -11,6 +10,7 @@ interface MessageListProps {
 
 export function MessageList({ messages }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // 自动滚动到底部
   useEffect(() => {
@@ -46,13 +46,13 @@ export function MessageList({ messages }: MessageListProps) {
   }
 
   return (
-    <ScrollArea className="flex-1 px-4">
+    <div ref={containerRef} className="flex-1 overflow-y-auto px-4">
       <div className="mx-auto max-w-3xl space-y-4 py-6">
         {messages.map((msg) => (
           <MessageItem key={msg.id} message={msg} />
         ))}
         <div ref={bottomRef} />
       </div>
-    </ScrollArea>
+    </div>
   );
 }
