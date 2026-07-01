@@ -1,1 +1,0 @@
-feat: session pin/unpin with pinned section in sidebar
