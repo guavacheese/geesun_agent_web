@@ -84,6 +84,7 @@ export interface ChatRequest {
   message: string;
   model_override?: ModelOverride;
   files?: string[];
+  continue_from_state?: boolean;
 }
 
 /** 模型切换参数 */

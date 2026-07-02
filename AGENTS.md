@@ -228,6 +228,33 @@ POST /api/v1/upload?user_id=XXX&session_id=YYY  → {"uploaded": [{"filename":".
   - **Tool 消息** — 不在消息流中独立渲染，而是通过 ToolCallCard 嵌入（见下文）
 - 消息列表自动滚动到最新
 
+### 3.5. 消息操作 — MessageItem 悬停按钮与编辑（P7）
+
+- **hover 用户消息**：右下角浮出 Copy + Edit 图标
+- **hover Agent 消息**：垂直居中出现 Copy 图标
+- **Copy**：将消息内容写入剪贴板
+- **Edit**：用户消息进入可编辑状态，底部显示 Cancel / Send
+- **编辑保存后**：
+  1. 调用 `POST /api/v1/sessions/{id}/edit` 截断编辑位置之后的所有消息
+  2. 替换最后一条用户消息为编辑后的内容
+  3. 前端刷新消息列表（保留到编辑点的历史）
+  4. 自动重新调用 `POST /api/v1/chat` 生成新的 Agent 回复
+
+新增接口：
+```
+POST /api/v1/sessions/{id}/edit
+Body: { "from_index": 3, "new_message": "编辑后的内容" }
+```
+
+后端处理：
+- 通过 LangGraph `graph.aupdate_state` 修改 checkpoint 中的 messages 列表：
+  - 只保留 `from_index` 之前的消息
+  - 将索引 `from_index` 处的用户消息替换为 `new_message`
+- 同时同步更新 PostgresStore 中 `("messages", user_id, session_id)` 命名空间下的消息列表，
+  保证 `GET /sessions/{id}/messages` 立即返回截断后的历史
+- 前端刷新消息后，调用 `POST /api/v1/chat` 并带 `continue_from_state: true`，
+  后端不再新增用户消息，而是直接从当前 checkpoint 继续生成 Agent 回复
+
 ### 4. 底部输入框 — MessageInput（P3）
 
 - 文本输入框 + 发送按钮（Enter 或点击发送）

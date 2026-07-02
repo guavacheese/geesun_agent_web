@@ -155,4 +155,18 @@ export async function deleteSkill(skillName: string, userId: string): Promise<vo
   });
 }
 
+// ---- Session message edit ----
+
+export async function editSessionMessage(
+  sessionId: string,
+  fromIndex: number,
+  newMessage: string
+): Promise<{ success: boolean; session_id: string; from_index: number }> {
+  return request(`/api/v1/sessions/${encodeURIComponent(sessionId)}/edit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ from_index: fromIndex, new_message: newMessage }),
+  });
+}
+
 export { ApiError };

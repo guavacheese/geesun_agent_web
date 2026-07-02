@@ -6,9 +6,10 @@ import { MessageItem } from "./MessageItem";
 
 interface MessageListProps {
   messages: Message[];
+  onEdit?: (index: number, newContent: string) => void;
 }
 
-export function MessageList({ messages }: MessageListProps) {
+export function MessageList({ messages, onEdit }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -48,8 +49,13 @@ export function MessageList({ messages }: MessageListProps) {
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto px-4">
       <div className="mx-auto max-w-3xl space-y-4 py-6">
-        {messages.map((msg) => (
-          <MessageItem key={msg.id} message={msg} />
+        {messages.map((msg, index) => (
+          <MessageItem
+            key={msg.id}
+            message={msg}
+            onEdit={onEdit ? (content) => onEdit(index, content) : undefined}
+            onCopy={() => {}}
+          />
         ))}
         <div ref={bottomRef} />
       </div>

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getSessionMessages } from "@/lib/api-client";
+import { getSessionMessages, editSessionMessage } from "@/lib/api-client";
 import { streamChat } from "@/lib/sse-client";
 import { useAuth } from "@/components/AuthProvider";
-import type { Message, SSEMessage, AgentStatus, ToolCall } from "@/lib/types";
+import type { Message, SSEMessage, AgentStatus, ToolCall, ChatRequest, ModelOverride } from "@/lib/types";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { ToolCallCard } from "./ToolCallCard";
@@ -24,7 +24,7 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
   const [currentToolName, setCurrentToolName] = useState<string>();
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<{ name: string; path: string }[]>([]);
-  const [selectedModel, setSelectedModel] = useState<import("@/lib/types").ModelOverride | null>(null);
+  const [selectedModel, setSelectedModel] = useState<ModelOverride | null>(null);
   const { user } = useAuth();
   const abortRef = useRef<(() => void) | null>(null);
 
@@ -52,20 +52,130 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
     };
   }, [sessionId, refreshKey]);
 
-  // 发送消息
-  const handleSend = useCallback(
-    (content: string) => {
+  // 通用流式处理
+  const runStream = useCallback(
+    (request: ChatRequest) => {
       if (isStreaming) return;
 
-      const now = new Date().toISOString();
+      setIsStreaming(true);
+      setToolCalls([]);
 
+      let aiContent = "";
+
+      const abort = streamChat(request, {
+        onEvent: (event: SSEMessage) => {
+          switch (event.type) {
+            case "agent_status":
+              if (event.status) {
+                setAgentStatus(event.status);
+                if (event.status === "running_tool" && event.tool) {
+                  setCurrentToolName(event.tool);
+                }
+              }
+              break;
+
+            case "token":
+              if (event.content) {
+                aiContent += event.content;
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const last = updated[updated.length - 1];
+                  if (last?.role === "ai") {
+                    updated[updated.length - 1] = {
+                      ...last,
+                      content: aiContent,
+                    };
+                  } else {
+                    updated.push({
+                      id: `ai-${Date.now()}`,
+                      role: "ai",
+                      content: aiContent,
+                      created_at: new Date().toISOString(),
+                    });
+                  }
+                  return updated;
+                });
+              }
+              break;
+
+            case "tool_call":
+              setToolCalls((prev) => [
+                ...prev,
+                {
+                  id: event.id || `tool-${Date.now()}`,
+                  tool: event.tool || "unknown",
+                  args: event.args || {},
+                  status: "running",
+                },
+              ]);
+              break;
+
+            case "tool_result":
+              setToolCalls((prev) => {
+                const idx = prev.findIndex((tc) => tc.id === event.id);
+                const targetIdx =
+                  idx >= 0
+                    ? idx
+                    : (() => {
+                        for (let i = prev.length - 1; i >= 0; i--) {
+                          if (prev[i].status === "running" && prev[i].tool === event.tool) {
+                            return i;
+                          }
+                        }
+                        return -1;
+                      })();
+                if (targetIdx < 0) return prev;
+                const updated = [...prev];
+                updated[targetIdx] = {
+                  ...updated[targetIdx],
+                  status: event.success ? "success" : "error",
+                  error: event.error,
+                };
+                return updated;
+              });
+              break;
+          }
+        },
+        onDone: () => {
+          setIsStreaming(false);
+          setAgentStatus("idle");
+          setToolCalls((prev) =>
+            prev.map((tc) => (tc.status === "running" ? { ...tc, status: "success" } : tc))
+          );
+          onStreamDone?.();
+        },
+        onError: (err) => {
+          setIsStreaming(false);
+          setAgentStatus("idle");
+          setMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === "ai") {
+              updated[updated.length - 1] = {
+                ...last,
+                content: last.content || `错误: ${err.message}`,
+              };
+            }
+            return updated;
+          });
+        },
+      });
+
+      abortRef.current = abort;
+    },
+    [isStreaming, onStreamDone]
+  );
+
+  // 发送新消息
+  const handleSend = useCallback(
+    (content: string) => {
+      const now = new Date().toISOString();
       const userMsg: Message = {
         id: `user-${Date.now()}`,
         role: "user",
         content,
         created_at: now,
       };
-
       const aiMsg: Message = {
         id: `ai-${Date.now()}`,
         role: "ai",
@@ -74,117 +184,39 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
       };
 
       setMessages((prev) => [...prev, userMsg, aiMsg]);
-      setUploadedFiles([]);  // 发送后清空本轮文件
-      setIsStreaming(true);
-      setToolCalls([]);
+      setUploadedFiles([]);
 
-      let aiContent = "";
-
-      const abort = streamChat(
-        {
-          session_id: sessionId,
-          message: content,
-          ...(selectedModel ? { model_override: selectedModel } : {}),
-          ...(uploadedFiles.length > 0 ? { files: uploadedFiles.map((f) => f.path) } : {}),
-        },
-        {
-          onEvent: (event: SSEMessage) => {
-            switch (event.type) {
-              case "agent_status":
-                if (event.status) {
-                  setAgentStatus(event.status);
-                  if (event.status === "running_tool" && event.tool) {
-                    setCurrentToolName(event.tool);
-                  }
-                }
-                break;
-
-              case "token":
-                if (event.content) {
-                  aiContent += event.content;
-                  setMessages((prev) => {
-                    const updated = [...prev];
-                    const last = updated[updated.length - 1];
-                    if (last?.role === "ai") {
-                      updated[updated.length - 1] = {
-                        ...last,
-                        content: aiContent,
-                      };
-                    }
-                    return updated;
-                  });
-                }
-                break;
-
-              case "tool_call":
-                setToolCalls((prev) => [
-                  ...prev,
-                  {
-                    id: event.id || `tool-${Date.now()}`,
-                    tool: event.tool || "unknown",
-                    args: event.args || {},
-                    status: "running",
-                  },
-                ]);
-                break;
-
-              case "tool_result":
-                setToolCalls((prev) => {
-                  // 优先按 id 匹配；后端 tool_result 不发 id 时按 tool 名称匹配最近一张 running 卡片
-                  const idx = prev.findIndex((tc) => tc.id === event.id);
-                  const targetIdx =
-                    idx >= 0
-                      ? idx
-                      : (() => {
-                          for (let i = prev.length - 1; i >= 0; i--) {
-                            if (prev[i].status === "running" && prev[i].tool === event.tool) {
-                              return i;
-                            }
-                          }
-                          return -1;
-                        })();
-                  if (targetIdx < 0) return prev;
-                  const updated = [...prev];
-                  updated[targetIdx] = {
-                    ...updated[targetIdx],
-                    status: event.success ? "success" : "error",
-                    error: event.error,
-                  };
-                  return updated;
-                });
-                break;
-            }
-          },
-          onDone: () => {
-            setIsStreaming(false);
-            setAgentStatus("idle");
-            // 流结束兜底：把残留的 running 卡片标为 success，避免永久转圈
-            setToolCalls((prev) =>
-              prev.map((tc) => (tc.status === "running" ? { ...tc, status: "success" } : tc))
-            );
-            onStreamDone?.();
-          },
-          onError: (err) => {
-            setIsStreaming(false);
-            setAgentStatus("idle");
-            setMessages((prev) => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last?.role === "ai") {
-                updated[updated.length - 1] = {
-                  ...last,
-                  content: last.content || `错误: ${err.message}`,
-                };
-              }
-              return updated;
-            });
-          },
-        }
-      );
-
-      abortRef.current = abort;
+      runStream({
+        session_id: sessionId,
+        message: content,
+        ...(selectedModel ? { model_override: selectedModel } : {}),
+        ...(uploadedFiles.length > 0 ? { files: uploadedFiles.map((f) => f.path) } : {}),
+      });
     },
-    [sessionId, isStreaming]
+    [sessionId, selectedModel, uploadedFiles, runStream]
+  );
+
+  // 编辑历史消息后重新生成
+  const handleEditMessage = useCallback(
+    async (index: number, newContent: string) => {
+      if (isStreaming) return;
+      try {
+        await editSessionMessage(sessionId, index, newContent);
+        // 刷新消息列表（保留到编辑点的历史）
+        const msgs = await getSessionMessages(sessionId);
+        setMessages(msgs);
+        // 从当前 checkpoint 继续生成新的 Agent 回复
+        runStream({
+          session_id: sessionId,
+          message: "",
+          continue_from_state: true,
+          ...(selectedModel ? { model_override: selectedModel } : {}),
+        });
+      } catch (e) {
+        console.error("编辑消息失败:", e);
+      }
+    },
+    [sessionId, selectedModel, isStreaming, runStream]
   );
 
   // 退出时取消流
@@ -225,14 +257,10 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
     [user?.id, sessionId]
   );
 
-  // 移除已上传文件
-  const removeFile = useCallback((index: number) => {
-    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  // 切换 session 时清空文件列表
+  // 切换 session 时清空文件列表和模型选择
   useEffect(() => {
     setUploadedFiles([]);
+    setSelectedModel(null);
   }, [sessionId, refreshKey]);
 
   if (isLoading) {
@@ -257,7 +285,7 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
         </div>
       )}
 
-      <MessageList messages={messages} />
+      <MessageList messages={messages} onEdit={handleEditMessage} />
       <MessageInput
         onSend={handleSend}
         disabled={isStreaming}
