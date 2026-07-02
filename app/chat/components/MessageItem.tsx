@@ -32,9 +32,9 @@ export function MessageItem({ message }: MessageItemProps) {
   }
 
   return (
-    <div className={`flex w-full gap-2.5 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+    <div className={`flex w-full items-start gap-2.5 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
       {/* 头像 */}
-      <div className="shrink-0 pt-0.5">
+      <div className="shrink-0 flex flex-col items-center">
         {isUser ? (
           <Avatar className="h-7 w-7 bg-primary/20">
             <AvatarFallback className="bg-primary/20 text-primary text-[11px] font-medium">
@@ -50,10 +50,10 @@ export function MessageItem({ message }: MessageItemProps) {
         )}
       </div>
 
-      {/* 气泡 */}
-      <div className={`max-w-[80%] ${isUser ? "items-end" : "items-start"}`}>
-        {/* 用户名 */}
-        <p className={`mb-1 text-[11px] ${isUser ? "text-right" : "text-left"} text-muted-foreground`}>
+      {/* 气泡 + 时间 + 用户名（用户气泡顶部对齐） */}
+      <div className={`max-w-[80%] flex flex-col gap-1 ${isUser ? "items-end" : "items-start"}`}>
+        {/* 用户名：与头像水平对齐（统一行） */}
+        <p className="h-7 flex items-center text-[11px] text-muted-foreground">
           {isUser ? (user?.id || "用户") : "Geesun Agent"}
         </p>
 
@@ -68,7 +68,7 @@ export function MessageItem({ message }: MessageItemProps) {
         </div>
 
         {message.created_at && (
-          <p className={`mt-1 text-[11px] ${isUser ? "text-right" : "text-left"} text-muted-foreground`}>
+          <p className={`mt-1 text-[11px] text-muted-foreground`}>
             {formatTime(message.created_at)}
           </p>
         )}
