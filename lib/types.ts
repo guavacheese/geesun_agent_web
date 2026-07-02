@@ -93,6 +93,19 @@ export interface ModelOverride {
   api_key?: string;
 }
 
+/** 后端返回的模型项 */
+export interface ModelItemRaw {
+  id: string;
+  model_name: string;
+  base_url: string;
+  is_default: boolean;
+}
+
+/** 模型列表响应 */
+export interface ModelsResponse {
+  models: ModelItemRaw[];
+}
+
 /** 模型信息 */
 export interface ModelInfo {
   id: string;

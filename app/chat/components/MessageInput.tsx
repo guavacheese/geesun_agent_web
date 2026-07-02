@@ -3,7 +3,8 @@
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent, type FormEvent, type ChangeEvent } from "react";
 import { Send, Paperclip, X, ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { ModelOverride } from "@/lib/types";
+import { getModels } from "@/lib/api-client";
+import type { ModelOverride, ModelItemRaw } from "@/lib/types";
 
 interface MessageInputProps {
   onSend: (message: string) => void;
@@ -14,14 +15,6 @@ interface MessageInputProps {
   model?: ModelOverride | null;
   onModelChange?: (model: ModelOverride | null) => void;
 }
-
-  // 内置默认模型（仅展示用，后端默认模型由 .env 决定）
-// TODO: 后端新增 GET /models 接口后，改为从后端读取默认模型
-const DEFAULT_MODEL: ModelOverride = {
-  model_name: "Qwen3.6-35B-A3B",
-  base_url: "",
-  api_key: "",
-};
 
 // 自定义模型 localStorage key
 const STORED_MODELS_KEY = "geesun_models";
@@ -55,13 +48,29 @@ export function MessageInput({
   const [addModelOpen, setAddModelOpen] = useState(false);
   const [addModelForm, setAddModelForm] = useState({ model_name: "", base_url: "", api_key: "" });
   const [customModels, setCustomModels] = useState<ModelOverride[]>(loadStoredModels);
+  const [systemModels, setSystemModels] = useState<ModelItemRaw[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modelRef = useRef<HTMLDivElement>(null);
 
-  const selectedModel = model || DEFAULT_MODEL;
-  const selectedLabel = selectedModel.model_name;
-  const allModels = [DEFAULT_MODEL, ...customModels];
+  // 从后端获取系统预装模型
+  useEffect(() => {
+    getModels()
+      .then((res) => setSystemModels(res.models || []))
+      .catch(() => setSystemModels([]));
+  }, []);
+
+  // 构建完整模型列表：系统预装 + 自定义
+  const allModels: (ModelItemRaw | ModelOverride)[] = [
+    ...systemModels,
+    ...customModels.map((m) => ({ ...m, id: m.model_name })),
+  ];
+
+  // 默认模型：从系统预装中取 is_default=true 的，兜底取第一个
+  const defaultModel = systemModels.find((m) => m.is_default) || systemModels[0] || null;
+  const selectedModel = model || (defaultModel ? { model_name: defaultModel.model_name, base_url: "", api_key: "" } : null);
+  const selectedId = selectedModel?.model_name || defaultModel?.model_name || "";
+  const selectedLabel = selectedId || "选择模型";
 
   // 点击外部关闭模型下拉
   useEffect(() => {
@@ -124,8 +133,9 @@ export function MessageInput({
     setAddModelForm({ model_name: "", base_url: "", api_key: "" });
   };
 
-  const selectModel = (m: ModelOverride) => {
-    onModelChange?.(m.base_url ? m : null);
+  const selectModel = (m: ModelItemRaw | ModelOverride) => {
+    const isSystem = "is_default" in m;
+    onModelChange?.(isSystem ? null : { model_name: m.model_name, base_url: "base_url" in m ? m.base_url : "", api_key: "api_key" in m ? m.api_key : "" });
     setModelOpen(false);
   };
 
@@ -188,14 +198,14 @@ export function MessageInput({
                       type="button"
                       onClick={() => selectModel(m)}
                       className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs ${
-                        selectedModel.model_name === m.model_name
+                        selectedId === m.model_name
                           ? "bg-primary/10 text-primary"
                           : "hover:bg-muted"
                       }`}
                     >
                       <span className="flex-1 truncate">{m.model_name}</span>
                       <span className="shrink-0 text-[10px] text-muted-foreground">
-                        {m.base_url ? "自定义" : "系统预置"}
+                        {"is_default" in m ? "系统预置" : "自定义"}
                       </span>
                     </button>
                   ))}

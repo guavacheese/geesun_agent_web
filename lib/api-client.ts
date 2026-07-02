@@ -16,6 +16,7 @@ import type {
   SkillsResponse,
   SkillFilesResponse,
   SkillFileContent,
+  ModelsResponse,
 } from "./types";
 import {
   adaptLoginResponse,
@@ -140,6 +141,12 @@ export async function getSkillFileContent(
   return request<SkillFileContent>(
     `/api/v1/skill/${encodeURIComponent(skillName)}/file?user_id=${encodeURIComponent(userId)}&source=${source}&path=${encodeURIComponent(filePath)}`
   );
+}
+
+// ---- Models ----
+
+export async function getModels(): Promise<ModelsResponse> {
+  return request<ModelsResponse>("/api/v1/models");
 }
 
 export async function deleteSkill(skillName: string, userId: string): Promise<void> {
