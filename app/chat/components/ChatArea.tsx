@@ -23,6 +23,8 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("idle");
   const [currentToolName, setCurrentToolName] = useState<string>();
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<{ name: string; path: string }[]>([]);
+  const [selectedModel, setSelectedModel] = useState<import("@/lib/types").ModelOverride | null>(null);
   const { user } = useAuth();
   const abortRef = useRef<(() => void) | null>(null);
 
@@ -72,13 +74,19 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
       };
 
       setMessages((prev) => [...prev, userMsg, aiMsg]);
+      setUploadedFiles([]);  // 发送后清空本轮文件
       setIsStreaming(true);
       setToolCalls([]);
 
       let aiContent = "";
 
       const abort = streamChat(
-        { session_id: sessionId, message: content },
+        {
+          session_id: sessionId,
+          message: content,
+          ...(selectedModel ? { model_override: selectedModel } : {}),
+          ...(uploadedFiles.length > 0 ? { files: uploadedFiles.map((f) => f.path) } : {}),
+        },
         {
           onEvent: (event: SSEMessage) => {
             switch (event.type) {
@@ -186,6 +194,47 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
     };
   }, [sessionId]);
 
+  // 上传文件到后端
+  const handleFileUpload = useCallback(
+    async (files: FileList) => {
+      if (!user?.id) return;
+      const formData = new FormData();
+      formData.append("user_id", user.id);
+      formData.append("session_id", sessionId);
+      for (let i = 0; i < files.length; i++) {
+        formData.append("files", files[i]);
+      }
+      try {
+        const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8009";
+        const res = await fetch(`${API_BASE}/api/v1/upload`, {
+          method: "POST",
+          body: formData,
+        });
+        if (!res.ok) throw new Error(`上传失败 (${res.status})`);
+        const data = await res.json();
+        const results: { name: string; path: string }[] =
+          data.uploaded?.map((u: { filename: string; path: string }) => ({
+            name: u.filename,
+            path: u.path,
+          })) || [];
+        setUploadedFiles((prev) => [...prev, ...results]);
+      } catch (e) {
+        console.error("文件上传失败:", e);
+      }
+    },
+    [user?.id, sessionId]
+  );
+
+  // 移除已上传文件
+  const removeFile = useCallback((index: number) => {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // 切换 session 时清空文件列表
+  useEffect(() => {
+    setUploadedFiles([]);
+  }, [sessionId, refreshKey]);
+
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -209,7 +258,15 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
       )}
 
       <MessageList messages={messages} />
-      <MessageInput onSend={handleSend} disabled={isStreaming} />
+      <MessageInput
+        onSend={handleSend}
+        disabled={isStreaming}
+        files={uploadedFiles}
+        onFilesChange={setUploadedFiles}
+        onUploadFiles={handleFileUpload}
+        model={selectedModel}
+        onModelChange={setSelectedModel}
+      />
     </div>
   );
 }

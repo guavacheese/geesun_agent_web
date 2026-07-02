@@ -61,7 +61,12 @@ GET    /api/v1/sessions/{id}/messages     → [{ "role": "user"|"ai"|"tool", "co
 ```
 POST /api/v1/chat
 Authorization: Bearer <token>
-Body: { "session_id": "...", "message": "...", "model_override": {...} }
+Body: {
+  "session_id": "...",
+  "message": "...",
+  "model_override": {...},     // 可选，动态切换模型
+  "files": ["/uploads/..."]     // 可选，本轮上传的文件路径列表
+}
 
 SSE 事件流：
   data: {"type":"agent_status","status":"thinking"}
@@ -199,6 +204,20 @@ GET    /api/v1/skill/{name}/file?user_id=XXX&path= → 读取单个文件内容
 │ 💬 新对话           │
 └─────────────────────┘
 ```
+
+### 文件上传（P7）
+```
+POST /api/v1/upload?user_id=XXX&session_id=YYY  → {"uploaded": [{"filename":"...", "path":"/uploads/..."}]}
+```
+
+上传文件存到 `/uploads/{user_id}/{session_id}/`，返回虚拟路径。前端在输入框上方显示文件 chips，发送时把路径列表放入 ChatRequest 的 `files` 字段。后端将本轮文件列表注入 user message，Agent 通过 read_file / ls 等工具精确处理本轮文件。
+
+### 模型切换（P7）
+
+- 输入框左侧加模型下拉，支持内置模型和自定义模型
+- 自定义模型存 localStorage（`geesun_models`），包含 `model_name`、`base_url`、`api_key`
+- 选中非默认模型时，发送请求带 `model_override`
+- 后端 `switch_model` middleware 从 runtime context 读取并动态切换
 
 ### 3. 右侧聊天区域 — ChatArea / MessageList（P3）
 

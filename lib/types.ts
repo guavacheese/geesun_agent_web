@@ -82,6 +82,15 @@ export interface SSEMessage {
 export interface ChatRequest {
   session_id: string;
   message: string;
+  model_override?: ModelOverride;
+  files?: string[];
+}
+
+/** 模型切换参数 */
+export interface ModelOverride {
+  model_name: string;
+  base_url: string;
+  api_key?: string;
 }
 
 /** 模型信息 */
