@@ -13,7 +13,12 @@ import type { Session } from "@/lib/types";
 
 export default function ChatPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return new URLSearchParams(window.location.search).get("session");
+    }
+    return null;
+  });
   const [refreshKey, setRefreshKey] = useState(0);
   const [pinnedOpen, setPinnedOpen] = useState(true);
   const { user, logout } = useAuth();
@@ -25,19 +30,36 @@ export default function ChatPage() {
       .then((list) => {
         if (Array.isArray(list)) {
           setSessions(list);
-          if (list.length > 0 && !activeId) {
-            setActiveId(list[0].id);
-          }
         }
       })
       .catch(() => setSessions([]));
   }, []);
+
+  // 会话加载完成后，如果没有匹配的 URL session，兜底选第一个
+  useEffect(() => {
+    if (sessions.length === 0) return;
+    setActiveId((prev) => {
+      if (prev && sessions.some((s) => s.id === prev)) return prev;
+      return sessions[0]?.id || null;
+    });
+  }, [sessions]);
+
+  // 选择会话（同步 URL）
+  const selectSession = useCallback(
+    (id: string) => {
+      setActiveId(id);
+      setRefreshKey((k) => k + 1);
+      window.history.replaceState(null, "", `/chat?session=${id}`);
+    },
+    []
+  );
 
   const handleCreate = useCallback(async () => {
     try {
       const session = await createSession();
       setSessions((prev) => [session, ...prev]);
       setActiveId(session.id);
+      window.history.replaceState(null, "", `/chat?session=${session.id}`);
     } catch {
       // ignore
     }
@@ -166,7 +188,7 @@ export default function ChatPage() {
                         key={s.id}
                         session={s}
                         active={activeId === s.id}
-                        onSelect={() => { setActiveId(s.id); setRefreshKey((k) => k + 1); }}
+                        onSelect={() => selectSession(s.id)}
                         onDelete={handleDelete}
                         onPin={handlePin}
                         onUnpin={handleUnpin}
@@ -183,7 +205,7 @@ export default function ChatPage() {
                 key={s.id}
                 session={s}
                 active={activeId === s.id}
-                onSelect={() => { setActiveId(s.id); setRefreshKey((k) => k + 1); }}
+                onSelect={() => selectSession(s.id)}
                 onDelete={handleDelete}
                 onPin={handlePin}
                 onUnpin={handleUnpin}
