@@ -98,11 +98,11 @@ export default function ChatPage() {
   return (
     <div className="flex h-screen overflow-hidden">
       {/* 左侧会话列表 */}
-      <aside className="flex w-[280px] shrink-0 flex-col border-r bg-card">
+      <aside className="flex w-[320px] shrink-0 flex-col border-r bg-card">
         {/* 头部 */}
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <h1 className="text-lg font-semibold text-primary">Geesun Agent</h1>
-          <div className="flex items-center gap-1">
+          <h1 className="shrink-0 text-lg font-semibold whitespace-nowrap text-primary">Geesun Agent</h1>
+          <div className="flex shrink-0 items-center gap-1">
             <Button
               variant="ghost"
               size="icon"
@@ -116,12 +116,12 @@ export default function ChatPage() {
                 <Moon className="h-4 w-4" />
               )}
             </Button>
-            <span className="text-xs text-muted-foreground">{user?.username}</span>
+            <span className="max-w-[60px] truncate text-xs text-muted-foreground">{user?.username}</span>
             <Button
               variant="ghost"
               size="sm"
               onClick={logout}
-              className="h-7 text-xs text-muted-foreground"
+              className="h-7 px-2 text-xs text-muted-foreground"
             >
               退出
             </Button>
