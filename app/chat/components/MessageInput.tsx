@@ -135,7 +135,9 @@ export function MessageInput({
 
   const selectModel = (m: ModelItemRaw | ModelOverride) => {
     const isSystem = "is_default" in m;
-    onModelChange?.(isSystem ? null : { model_name: m.model_name, base_url: "base_url" in m ? m.base_url : "", api_key: "api_key" in m ? m.api_key : "" });
+    // 仅 is_default=true 时才传 null（走后端默认模型）
+    const isDefaultModel = isSystem && (m as ModelItemRaw).is_default === true;
+    onModelChange?.(isDefaultModel ? null : { model_name: m.model_name, base_url: "base_url" in m ? (m as ModelItemRaw).base_url : "", api_key: "api_key" in m ? (m as ModelItemRaw).api_key || undefined : undefined });
     setModelOpen(false);
   };
 
