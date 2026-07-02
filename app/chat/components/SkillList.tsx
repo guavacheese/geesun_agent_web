@@ -24,6 +24,7 @@ import {
   FileText,
   Upload,
   X,
+  FolderOpen,
 } from "lucide-react";
 
 // ─── 图标映射 ───
@@ -220,12 +221,38 @@ export function SkillList() {
               className="mb-2 w-full rounded-lg border px-3 py-2 text-sm"
             />
 
+            <label className="mb-1 block text-xs text-muted-foreground">上传文件</label>
+
             <input
+              id="skill-file-input"
               type="file"
               multiple
+              className="hidden"
               onChange={(e) => setUploadFiles(e.target.files)}
-              className="mb-3 w-full text-sm"
             />
+
+            <button
+              type="button"
+              onClick={() => document.getElementById("skill-file-input")?.click()}
+              className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-input bg-background px-4 py-4 text-sm text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+            >
+              <FolderOpen className="h-5 w-5" />
+              <span>{uploadFiles && uploadFiles.length > 0 ? `已选 ${uploadFiles.length} 个文件` : "点击选择文件或拖拽至此"}</span>
+            </button>
+
+            {uploadFiles && uploadFiles.length > 0 && (
+              <div className="mb-2 max-h-24 overflow-auto rounded-md bg-muted p-2">
+                <ul className="space-y-0.5 text-xs text-muted-foreground">
+                  {Array.from(uploadFiles).map((f, i) => (
+                    <li key={i} className="truncate">{f.name}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <p className="mb-3 text-[11px] text-muted-foreground">
+              支持 zip 压缩包或单文件上传，必须包含 SKILL.md，且其中 name 字段与上方 Skill 名称一致。
+            </p>
 
             {uploadError && (
               <p className="mb-2 text-xs text-destructive">{uploadError}</p>
