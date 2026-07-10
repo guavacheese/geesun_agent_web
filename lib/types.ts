@@ -60,6 +60,7 @@ export interface ToolCall {
   args: Record<string, unknown>;
   success?: boolean;
   error?: string | null;
+  result?: string | null; // 工具执行结果（输出内容），限 2000 字符
   status: "running" | "success" | "error";
 }
 
@@ -86,6 +87,7 @@ export interface SSEMessage {
   args?: Record<string, unknown>;
   success?: boolean;
   error?: string | null;
+  result?: string | null; // 工具执行结果
   // file_generated 事件字段
   file_name?: string;
   file_path?: string;

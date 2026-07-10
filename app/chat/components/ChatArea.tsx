@@ -152,6 +152,7 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
                   ...updated[targetIdx],
                   status: event.success ? "success" : "error",
                   error: event.error,
+                  result: event.result || undefined,
                 };
                 return updated;
               });
