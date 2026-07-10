@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { type Message, type ToolCall } from "@/lib/types";
 import { MessageItem } from "./MessageItem";
 
@@ -15,10 +15,25 @@ interface MessageListProps {
 export function MessageList({ messages, sessionId, toolCalls, isStreaming, onEdit }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const userAtBottomRef = useRef(true);
 
-  // 自动滚动到底部
+  /** 判断用户当前是否在底部附近 */
+  const isNearBottom = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  }, []);
+
+  // 监听用户滚动，记录是否在底部
+  const handleScroll = useCallback(() => {
+    userAtBottomRef.current = isNearBottom();
+  }, [isNearBottom]);
+
+  // 自动滚动到底部——但仅在用户此前已在底部时触发
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (userAtBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   // 找到最后一条 AI 消息的索引，将 toolCalls 传给该条消息
@@ -58,7 +73,11 @@ export function MessageList({ messages, sessionId, toolCalls, isStreaming, onEdi
   }
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto px-4">
+    <div
+      ref={containerRef}
+      className="flex-1 overflow-y-auto px-4"
+      onScroll={handleScroll}
+    >
       <div className="mx-auto max-w-3xl space-y-4 py-6">
         {messages.map((msg, index) => (
           <MessageItem
