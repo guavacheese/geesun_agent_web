@@ -1,15 +1,18 @@
 "use client";
 
 import { useState, type KeyboardEvent, type FormEvent } from "react";
-import { type Message } from "@/lib/types";
+import { type Message, type ToolCall } from "@/lib/types";
 import { useAuth } from "@/components/AuthProvider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { User, Bot, Copy, Check, Pencil } from "lucide-react";
 import { GeneratedFileCard } from "./GeneratedFileCard";
+import { ToolCallTimeline } from "./ToolCallTimeline";
 
 interface MessageItemProps {
   message: Message;
   sessionId: string;
+  toolCalls?: ToolCall[];
+  isStreaming?: boolean;
   onEdit?: (newContent: string) => void;
   onCopy?: (content: string) => void;
 }
@@ -27,7 +30,7 @@ function formatTime(isoStr?: string): string {
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
 }
 
-export function MessageItem({ message, sessionId, onEdit, onCopy }: MessageItemProps) {
+export function MessageItem({ message, sessionId, toolCalls, isStreaming, onEdit, onCopy }: MessageItemProps) {
   const isUser = message.role === "user";
   const isTool = message.role === "tool";
   const { user } = useAuth();
@@ -172,6 +175,11 @@ export function MessageItem({ message, sessionId, onEdit, onCopy }: MessageItemP
                   />
                 ))}
               </div>
+            )}
+
+            {/* Agent 工具调用时间线 — 嵌入 AI 消息气泡下方 */}
+            {!isUser && toolCalls && toolCalls.length > 0 && (
+              <ToolCallTimeline toolCalls={toolCalls} isStreaming={!!isStreaming} />
             )}
 
             {/* 时间戳 + 用户操作按钮 */}

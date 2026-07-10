@@ -8,7 +8,6 @@ import type { Message, SSEMessage, AgentStatus, ToolCall, ChatRequest, ModelOver
 import { inferFileType } from "@/lib/types";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
-import { ToolCallCard } from "./ToolCallCard";
 import { AgentStatusBar } from "./AgentStatusBar";
 import { CheckCircle2, XCircle } from "lucide-react";
 
@@ -353,36 +352,31 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
       {/* Agent 状态栏 */}
       <AgentStatusBar status={agentStatus} toolName={currentToolName} />
 
-      {/* 工具调用卡片（在消息流上方） */}
-      {toolCalls.length > 0 && (
+      {/* 流结束时显示整体任务状态（紧凑条） */}
+      {!isStreaming && toolCalls.length > 0 && (
         <div className="mx-auto w-full max-w-3xl px-4">
-          {toolCalls.map((tc) => (
-            <ToolCallCard key={tc.id} toolCall={tc} />
-          ))}
-          {/* 流结束时显示整体任务状态 */}
-          {!isStreaming && streamErrorRef.current && (
-            <div className="my-2 rounded-xl border-2 border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
-              <div className="flex items-center gap-2">
-                <XCircle className="h-5 w-5 text-destructive" />
-                <span className="font-medium text-destructive">任务执行失败</span>
-              </div>
-              <p className="mt-1 text-xs text-destructive/80">
-                {streamErrorRef.current}
-              </p>
+          {streamErrorRef.current ? (
+            <div className="flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-1.5 text-xs text-destructive">
+              <XCircle className="h-3.5 w-3.5 shrink-0" />
+              <span className="font-medium">任务执行失败</span>
+              <span className="text-destructive/70 truncate">：{streamErrorRef.current}</span>
             </div>
-          )}
-          {!isStreaming && !streamErrorRef.current && (
-            <div className="my-2 rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-800 dark:bg-emerald-950/30">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                <span className="font-medium text-emerald-600 dark:text-emerald-400">任务执行完成</span>
-              </div>
+          ) : (
+            <div className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="font-medium">任务执行完成</span>
             </div>
           )}
         </div>
       )}
 
-      <MessageList messages={messages} sessionId={sessionId} onEdit={handleEditMessage} />
+      <MessageList
+        messages={messages}
+        sessionId={sessionId}
+        toolCalls={toolCalls}
+        isStreaming={isStreaming}
+        onEdit={handleEditMessage}
+      />
       <MessageInput
         onSend={handleSend}
         disabled={isStreaming}

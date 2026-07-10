@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { type Message } from "@/lib/types";
+import { type Message, type ToolCall } from "@/lib/types";
 import { MessageItem } from "./MessageItem";
 
 interface MessageListProps {
   messages: Message[];
   sessionId: string;
+  toolCalls?: ToolCall[];
+  isStreaming?: boolean;
   onEdit?: (index: number, newContent: string) => void;
 }
 
-export function MessageList({ messages, sessionId, onEdit }: MessageListProps) {
+export function MessageList({ messages, sessionId, toolCalls, isStreaming, onEdit }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -18,6 +20,14 @@ export function MessageList({ messages, sessionId, onEdit }: MessageListProps) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // 找到最后一条 AI 消息的索引，将 toolCalls 传给该条消息
+  const lastAiIndex = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "ai") return i;
+    }
+    return -1;
+  })();
 
   if (messages.length === 0) {
     return (
@@ -55,6 +65,8 @@ export function MessageList({ messages, sessionId, onEdit }: MessageListProps) {
             key={msg.id}
             message={msg}
             sessionId={sessionId}
+            toolCalls={index === lastAiIndex ? toolCalls : undefined}
+            isStreaming={index === lastAiIndex ? isStreaming : undefined}
             onEdit={onEdit ? (content) => onEdit(index, content) : undefined}
             onCopy={() => {}}
           />
