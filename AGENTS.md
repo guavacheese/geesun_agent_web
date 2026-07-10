@@ -19,7 +19,7 @@
 | 样式 | Tailwind CSS **v4**（CSS-first 配置，无需 `tailwind.config.ts`） |
 | UI 组件库 | **shadcn/ui**（基于 Radix UI 原语的 Tailwind 组件库，与 Next.js 16 + Tailwind 原生集成） |
 | 图标库 | **lucide-react**（shadcn/ui 默认图标搭档，React 生态最主流的图标库，Tree-shakable） |
-| 包管理器 | **pnpm**（沙箱内默认可用）或 **bun**（宿主机首选，需自行安装）或 **npm** |
+| 包管理器 | **bun**（默认，lockfile: `bun.lock`） |
 | MCP | `next-devtools` MCP 服务需配置并启用，用于开发中的架构检查与代码生成 |
 
 > **关于图标库的说明**：Next.js 16 官方文档未指定特定图标或 UI 组件库，保持框架中立。
@@ -389,20 +389,15 @@ Body: { "from_index": 3, "new_message": "编辑后的内容" }
 
 ### 开发环境
 - Node.js >= 22（推荐使用 WorkBuddy 管理的 22.22.2）
-- 包管理器：
-  - **沙箱内（WorkBuddy 项目初始化）**：优先用 `pnpm`（已内置可用），`bun` 在沙箱中不可用
-  - **宿主机（你本地开发）**：首选 `bun`（安装最快），备选 `pnpm` / `npm`；三选一即可，锁文件格式不同但不影响项目运行
+- 包管理器：**bun**（默认，lockfile: `bun.lock`）
 - 后端必须同时运行（`http://localhost:8009`），开发时配置 `NEXT_PUBLIC_API_BASE=http://localhost:8009`
 - 启动命令：
   ```bash
-  # 安装依赖（沙箱初始化走 pnpm，宿主机三选一）
-  pnpm install     # 沙箱默认
-  bun install      # 宿主机首选（需自行安装 bun）
-  npm install      # 兜底
+  # 安装依赖
+  bun install
 
   # 开发服务器（默认端口 3000）
-  pnpm dev         # 沙箱内
-  bun run dev      # 宿主机（需 bun）
+  bun run dev
   ```
 
 ### MCP 配置
@@ -424,7 +419,7 @@ Body: { "from_index": 3, "new_message": "编辑后的内容" }
 
 ### 依赖包记录（强制）
 
-每次通过 `pnpm add` / `bun add` / `npm install` 安装新包后，**必须**同步更新项目根目录的 `README.md`，在「依赖包清单」章节记录：
+每次通过 `bun add` 安装新包后，**必须**同步更新项目根目录的 `README.md`，在「依赖包清单」章节记录：
 
 - **包名** + **版本号** + **用途（一句话）**
 
