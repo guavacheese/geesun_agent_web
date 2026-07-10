@@ -72,10 +72,19 @@ SSE 事件流：
   data: {"type":"agent_status","status":"thinking"}
   data: {"type":"token","content":"正在分析..."}
   data: {"type":"tool_call","tool":"read_file","args":{...},"id":"..."}
-  data: {"type":"agent_status","status":"running_tool","tool":"read_file"}
+  data: {"type":"agent_status","status":"running_tool","read_file"}
   data: {"type":"tool_result","tool":"read_file","success":true,"error":null}
   data: {"type":"token","content":"分析结果如下..."}
+  data: {"type":"file_generated","file_name":"报告.md","file_path":"/reports/uid/sid/报告.md","file_size":2048}  ← Agent 生成文件后实时推送
   data: [DONE]
+```
+
+### 文件下载/预览
+```
+GET /api/v1/files/{user_id}/{session_id}/{filename:path}
+Authorization: Bearer <token>
+
+响应：文件内容（Content-Type 自动识别，图片/文本/PDF inline 预览，其他 attachment 下载）
 ```
 
 ---
@@ -102,7 +111,9 @@ geesun_agent_web/
 │           ├── MessageItem.tsx      ← 单条消息渲染（区分 user/ai/tool 角色）
 │           ├── MessageInput.tsx     ← 底部输入框（发送消息 + 模型切换按钮）
 │           ├── AgentStatusBar.tsx   ← Agent 状态指示条（thinking / running_tool / idle）
-│           └── ToolCallCard.tsx     ← 工具调用卡片（工具名、参数、成功/失败状态）
+│           ├── ToolCallCard.tsx     ← 工具调用卡片（工具名、参数、成功/失败状态）
+│           ├── GeneratedFileCard.tsx ← 文件卡片（Agent 生成的文件，含预览/下载按钮）
+│           └── FilePreviewModal.tsx  ← 文件预览弹窗（文本/图片/PDF）
 ├── components/
 │   └── ui/                      ← shadcn/ui 组件（通过 `npx shadcn add` 添加）
 │       ├── button.tsx
@@ -212,6 +223,54 @@ POST /api/v1/upload?user_id=XXX&session_id=YYY  → {"uploaded": [{"filename":".
 
 上传文件存到 `/uploads/{user_id}/{session_id}/`，返回虚拟路径。前端在输入框上方显示文件 chips，发送时把路径列表放入 ChatRequest 的 `files` 字段。后端将本轮文件列表注入 user message，Agent 通过 read_file / ls 等工具精确处理本轮文件。
 
+### 文件生成与下载/预览（P2 — 已实现）
+
+Agent 在执行过程中通过 `write_file` 工具生成报告时，后端在 SSE 流中实时推送 `file_generated` 事件。前端收到后在 AI 消息气泡下方渲染文件卡片，用户可预览或下载。
+
+#### 后端实现
+
+- **SSE 事件**：在 `chat.py` 的 `tools` 节点分支中，检测 `write_file` 工具返回的 `"Updated file /reports/..."` 内容，提取文件路径和大小，emit `file_generated` 事件
+- **下载端点**：新增 `GET /api/v1/files/{user_id}/{session_id}/{filename:path}`
+  - JWT 鉴权，只能访问自己 user_id 下的文件
+  - 路径穿越防护（`..` / 绝对路径拦截）
+  - 自动 MIME 类型识别，图片/文本/PDF inline 预览，其他 attachment 下载
+  - 在 `settings.report_root` 和 `settings.upload_root` 两处查找文件
+
+#### 前端组件
+
+**GeneratedFileCard** — 文件卡片，位于 AI 消息气泡文本内容下方：
+```
+┌──────────────────────────────────────────┐
+│ 📄 分析报告.md                   12 KB   │
+│                              [预览] [下载]│
+└──────────────────────────────────────────┘
+```
+- 按文件类型显示不同图标（文本/图片/表格/压缩包/其他）
+- 格式化文件大小
+- [预览]：仅 text / code / image / pdf 类型可用，打开 FilePreviewModal
+- [下载]：创建临时 `<a>` 触发浏览器下载
+
+**FilePreviewModal** — 文件预览弹窗：
+| 文件类型 | 预览方式 |
+|---------|---------|
+| text / code | fetch 全文 → `<pre><code>` 语法高亮展示 |
+| image | `<img>` 全尺寸展示 |
+| pdf | `<iframe>` 展示 |
+| other | "暂不支持在线预览"提示 + 突出下载按钮 |
+- ESC / 点击遮罩关闭
+- 标题栏含文件名 + 下载按钮 + 关闭按钮
+
+#### 数据流
+```
+Agent write_file 执行成功
+  → tools 节点检测到 "Updated file /reports/..."
+  → SSE: {"type":"file_generated","file_name":"report.md","file_path":"/reports/...","file_size":1234}
+  → ChatArea.onEvent("file_generated") → 追加到 AI Message.generated_files[]
+  → MessageItem 在气泡下方渲染 GeneratedFileCard
+  → 用户点击 [预览] → FilePreviewModal 弹窗
+  → 用户点击 [下载] → fetch('/api/v1/files/{uid}/{sid}/{filename}')
+```
+
 ### 模型切换（P7）
 
 - 输入框左侧加模型下拉，支持内置模型和自定义模型
@@ -274,6 +333,7 @@ Body: { "from_index": 3, "new_message": "编辑后的内容" }
 | `token` | 追加到当前 AI 回答的文本内容（流式逐字渲染） |
 | `tool_call` | 渲染 `ToolCallCard` 卡片（工具名 + 参数） |
 | `tool_result` | 更新对应 `ToolCallCard` 的成功/失败状态 |
+| `file_generated` | 实时追加 `GeneratedFileCard` 到当前 AI 消息气泡下方（文件名、大小、下载/预览按钮） |
 | `[DONE]` | 结束流，刷新会话消息列表，启用输入框 |
 
 ### 6. Agent 状态指示条 — AgentStatusBar（P5）
@@ -389,14 +449,15 @@ Body: { "from_index": 3, "new_message": "编辑后的内容" }
 
 ## 实施优先级
 
-| 阶段 | 内容 | 依赖 |
-|---|---|---|
-| P0 | 项目初始化（Next.js 16 App Router + Tailwind + TypeScript 严格模式 + shadcn/ui 初始化 + lucide-react） | — |
-| P1 | 基础框架：AuthProvider + 登录页 + ChatShell 左右布局 | P0 |
-| P2 | 聊天核心：SSE 流处理 + MessageList + MessageItem + MessageInput | P1 |
-| P3 | 工具调用：ToolCallCard + AgentStatusBar + 状态联动 | P2 |
-| P4 | 会话管理：SessionList + 新建/切换/删除对话 | P1 |
-| P5 | 增强体验：模型切换、错误边界、加载骨架屏、暗色模式 | P3+P4 |
+| 阶段 | 内容 | 依赖 | 状态 |
+|---|---|---|---|
+| P0 | 项目初始化（Next.js 16 App Router + Tailwind + TypeScript 严格模式 + shadcn/ui 初始化 + lucide-react） | — | ✅ 完成 |
+| P1 | 基础框架：AuthProvider + 登录页 + ChatShell 左右布局 | P0 | ✅ 完成 |
+| P2 | 聊天核心：SSE 流处理 + MessageList + MessageItem + MessageInput | P1 | ✅ 完成 |
+| P2 | 文件生成与下载：file_generated SSE 事件 + 文件下载端点 + GeneratedFileCard + FilePreviewModal | P2 | ✅ 2026-07-09 |
+| P3 | 工具调用：ToolCallCard + AgentStatusBar + 状态联动 | P2 | ✅ 完成 |
+| P4 | 会话管理：SessionList + 新建/切换/删除对话 | P1 | ✅ 完成 |
+| P5 | 增强体验：模型切换、错误边界、加载骨架屏、暗色模式 | P3+P4 | 🔄 进行中 |
 
 ---
 
