@@ -345,18 +345,62 @@ Body: { "from_index": 3, "new_message": "编辑后的内容" }
 
 状态条位置：消息列表顶部或底部输入框上方。
 
-### 7. 工具调用卡片 — ToolCallCard（P5）
+### 7. 工具调用时间线 — ToolCallTimeline + ToolCallCard（P5—已优化 2026-07-10）
 
-展示 Agent 执行的工具调用：
+工具调用从独立区域移入 AI 消息气泡内部，作为消息的「附体」部分，不再独立占位。
+
+#### 架构改动
+
+- **ToolCallTimeline** — 新增组件，包裹多条 ToolCallCard，渲染在 AI 消息气泡下方
+- **ToolCallCard** — 重构，增加折叠/展开逻辑和结果展示
+- **ChatArea**: 移除工具卡片的独立 `<div>` 区域
+- **MessageList**: 接收 `toolCalls` 和 `isStreaming` props，传给最后一条 AI 角色的 MessageItem
+- **MessageItem**: 接收 `toolCalls`，在 AI 消息气泡下方渲染 ToolCallTimeline
+
+#### ToolCall 数据流
+
 ```
-┌─────────────────────────────────────┐
-│ 🔧 read_file                        │  ← 工具名称 + 图标
-│ 📄 /uploads/xxx/1111-IO表.xml       │  ← 参数（关键参数摘要）
-│                                     │
-│ ⏳ 执行中...                        │  ← tool_call 刚发出
-│ ✅ 执行成功                         │  ← tool_result success
-│ ❌ 执行失败: 文件未找到             │  ← tool_result error
-└─────────────────────────────────────┘
+SSE tool_call → ChatArea 更新 toolCalls 状态
+SSE tool_result (含 result 字段) → ChatArea 更新对应工具的状态 + 结果
+ChatArea → MessageList({ toolCalls, isStreaming })
+MessageList → 最后一条 AI MessageItem({ toolCalls })
+MessageItem → ToolCallTimeline → ToolCallCard[]
+```
+
+#### ToolCallCard 折叠逻辑
+
+| 工具状态 | 默认 | 视觉 |
+|---------|:---:|------|
+| ✅ 成功 | **折叠** | 一行文字 `✅ tool_name`，点开可见详情 |
+| ❌ 失败 | **展开** | 显示参数 + 错误信息 |
+| ⏳ 运行中 | **展开** | 显示参数 + 旋转动画，边框高亮 |
+
+#### 参数区域折叠
+
+args 区域默认收起，只显示最关键的 1-2 个参数（如 `file_path`、`command`），其余参数和工具返回的 **结果内容** 收进「参数/结果」折叠面板。
+
+#### 工具结果展示
+
+后端 `tool_result` SSE 事件新增 `result` 字段，携带工具返回内容（限 2000 字符），前端在展开状态下以折叠面板展示。
+
+```
+AI 消息气泡
+┌──────────────────────────────────────────┐
+│ Agent 正在分析...                         │
+│                                          │
+│ ── 工具调用 ──                           │
+│                                          │
+│ ✅ read_file                     [展开▸] │  ← 成功，默认折叠
+│ ❌ upload_to_sandbox             [收起▾] │  ← 失败，默认展开
+│   ┌────────────────────────────────┐     │
+│   │ 参数: file_path = E:\work\...  │     │
+│   │ 错误: {"success":false,...}    │     │
+│   └────────────────────────────────┘     │
+│ ⏳ decrypt_upload...              [展开▸]│  ← 运行中，默认展开(动画)
+│ ──────────────────────────               │
+│                                          │
+│ (AI 回复内容)                             │
+└──────────────────────────────────────────┘
 ```
 
 ---
@@ -453,6 +497,7 @@ Body: { "from_index": 3, "new_message": "编辑后的内容" }
 | P3 | 工具调用：ToolCallCard + AgentStatusBar + 状态联动 | P2 | ✅ 完成 |
 | P4 | 会话管理：SessionList + 新建/切换/删除对话 | P1 | ✅ 完成 |
 | P5 | 增强体验：模型切换、错误边界、加载骨架屏、暗色模式 | P3+P4 | 🔄 进行中 |
+| P5 | UX优化：工具调用嵌入AI消息 + 折叠/展开 + 结果展示 | P3 | ✅ 完成 (2026-07-10) |
 
 ---
 
