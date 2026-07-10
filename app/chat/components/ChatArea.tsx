@@ -10,6 +10,7 @@ import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { ToolCallCard } from "./ToolCallCard";
 import { AgentStatusBar } from "./AgentStatusBar";
+import { CheckCircle2, XCircle } from "lucide-react";
 
 interface ChatAreaProps {
   sessionId: string;
@@ -28,6 +29,7 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
   const [selectedModel, setSelectedModel] = useState<ModelOverride | null>(null);
   const { user } = useAuth();
   const abortRef = useRef<(() => void) | null>(null);
+  const streamErrorRef = useRef<string | null>(null); // 跟踪 SSE error 事件，用于 onDone 判断
   // 按 sessionId 缓存消息，切换会话时不丢失未保存的流式输出
   const messagesCache = useRef<Record<string, Message[]>>({});
   const previousSessionRef = useRef<string | null>(null);
@@ -74,6 +76,8 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
   const runStream = useCallback(
     (request: ChatRequest) => {
       if (isStreaming) return;
+
+      streamErrorRef.current = null; // 每次新流开始时清除错误状态
 
       setIsStreaming(true);
       setToolCalls([]);
@@ -177,14 +181,42 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
                 });
               }
               break;
+
+            case "error":
+              streamErrorRef.current = event.content || "Agent 处理异常";
+              setMessages((prev) => {
+                if (prev.length === 0) return prev;
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last?.role === "ai") {
+                  updated[updated.length - 1] = {
+                    ...last,
+                    content: last.content || `⚠️ Agent 处理异常：${event.content || "未知错误"}`,
+                  };
+                }
+                return updated;
+              });
+              break;
           }
         },
         onDone: () => {
           setIsStreaming(false);
           setAgentStatus("idle");
-          setToolCalls((prev) =>
-            prev.map((tc) => (tc.status === "running" ? { ...tc, status: "success" } : tc))
-          );
+          const hadError = streamErrorRef.current;
+          if (hadError) {
+            // 后端发生了异常（如递归上限、工具执行崩溃等），未完成工具标记为错误
+            setToolCalls((prev) =>
+              prev.map((tc) =>
+                tc.status === "running"
+                  ? { ...tc, status: "error", error: hadError }
+                  : tc
+              )
+            );
+          } else {
+            setToolCalls((prev) =>
+              prev.map((tc) => (tc.status === "running" ? { ...tc, status: "success" } : tc))
+            );
+          }
           onStreamDone?.();
         },
         onError: (err) => {
@@ -326,6 +358,26 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
           {toolCalls.map((tc) => (
             <ToolCallCard key={tc.id} toolCall={tc} />
           ))}
+          {/* 流结束时显示整体任务状态 */}
+          {!isStreaming && streamErrorRef.current && (
+            <div className="my-2 rounded-xl border-2 border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
+              <div className="flex items-center gap-2">
+                <XCircle className="h-5 w-5 text-destructive" />
+                <span className="font-medium text-destructive">任务执行失败</span>
+              </div>
+              <p className="mt-1 text-xs text-destructive/80">
+                {streamErrorRef.current}
+              </p>
+            </div>
+          )}
+          {!isStreaming && !streamErrorRef.current && (
+            <div className="my-2 rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-800 dark:bg-emerald-950/30">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                <span className="font-medium text-emerald-600 dark:text-emerald-400">任务执行完成</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
