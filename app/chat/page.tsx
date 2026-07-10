@@ -230,7 +230,7 @@ export default function ChatPage() {
       {/* 右侧聊天区域 */}
       <main className="flex flex-1 flex-col overflow-hidden">
         {activeId ? (
-          <ChatArea key={`${activeId}-${refreshKey}`} sessionId={activeId} refreshKey={refreshKey} onStreamDone={handleStreamDone} />
+          <ChatArea key="main-chat" sessionId={activeId} refreshKey={refreshKey} onStreamDone={handleStreamDone} />
         ) : (
           <div className="flex flex-1 items-center justify-center">
             <div className="text-center">

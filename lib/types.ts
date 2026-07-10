@@ -41,7 +41,16 @@ export interface Message {
   role: MessageRole;
   content: string;
   tool_calls?: ToolCall[];
+  generated_files?: GeneratedFile[];
   created_at?: string;
+}
+
+/** 生成的文件信息（来自 file_generated SSE 事件） */
+export interface GeneratedFile {
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  file_type: "text" | "image" | "code" | "pdf" | "spreadsheet" | "archive" | "other";
 }
 
 /** 工具调用 */
@@ -60,6 +69,7 @@ export type SSEEventType =
   | "token"
   | "tool_call"
   | "tool_result"
+  | "file_generated"
   | "error"
   | "done";
 
@@ -76,6 +86,10 @@ export interface SSEMessage {
   args?: Record<string, unknown>;
   success?: boolean;
   error?: string | null;
+  // file_generated 事件字段
+  file_name?: string;
+  file_path?: string;
+  file_size?: number;
 }
 
 /** 聊天请求 */
@@ -219,4 +233,16 @@ export function adaptMessagesResponse(raw: MessagesResponseRaw): Message[] {
     content: m.content,
     created_at: m.created_at,
   }));
+}
+
+/** 根据文件名推断文件类型分类 */
+export function inferFileType(fileName: string): GeneratedFile["file_type"] {
+  const ext = fileName.split(".").pop()?.toLowerCase() || "";
+  if (["md", "txt", "log"].includes(ext)) return "text";
+  if (["py", "js", "ts", "tsx", "css", "html", "json", "yaml", "yml", "sh", "java", "go", "rs", "c", "cpp", "h"].includes(ext)) return "code";
+  if (["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico"].includes(ext)) return "image";
+  if (["pdf"].includes(ext)) return "pdf";
+  if (["xlsx", "xls", "csv"].includes(ext)) return "spreadsheet";
+  if (["zip", "tar", "gz", "7z", "rar"].includes(ext)) return "archive";
+  return "other";
 }

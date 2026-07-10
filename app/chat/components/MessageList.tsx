@@ -6,10 +6,11 @@ import { MessageItem } from "./MessageItem";
 
 interface MessageListProps {
   messages: Message[];
+  sessionId: string;
   onEdit?: (index: number, newContent: string) => void;
 }
 
-export function MessageList({ messages, onEdit }: MessageListProps) {
+export function MessageList({ messages, sessionId, onEdit }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -53,6 +54,7 @@ export function MessageList({ messages, onEdit }: MessageListProps) {
           <MessageItem
             key={msg.id}
             message={msg}
+            sessionId={sessionId}
             onEdit={onEdit ? (content) => onEdit(index, content) : undefined}
             onCopy={() => {}}
           />

@@ -4,10 +4,12 @@ import { useState, type KeyboardEvent, type FormEvent } from "react";
 import { type Message } from "@/lib/types";
 import { useAuth } from "@/components/AuthProvider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Bot, Copy, Check, Pencil, X, Send } from "lucide-react";
+import { User, Bot, Copy, Check, Pencil } from "lucide-react";
+import { GeneratedFileCard } from "./GeneratedFileCard";
 
 interface MessageItemProps {
   message: Message;
+  sessionId: string;
   onEdit?: (newContent: string) => void;
   onCopy?: (content: string) => void;
 }
@@ -25,7 +27,7 @@ function formatTime(isoStr?: string): string {
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
 }
 
-export function MessageItem({ message, onEdit, onCopy }: MessageItemProps) {
+export function MessageItem({ message, sessionId, onEdit, onCopy }: MessageItemProps) {
   const isUser = message.role === "user";
   const isTool = message.role === "tool";
   const { user } = useAuth();
@@ -157,6 +159,20 @@ export function MessageItem({ message, onEdit, onCopy }: MessageItemProps) {
                 </button>
               )}
             </div>
+
+            {/* Agent 生成的文件卡片列表 */}
+            {!isUser && message.generated_files && message.generated_files.length > 0 && (
+              <div className="w-full space-y-2">
+                {message.generated_files.map((file, i) => (
+                  <GeneratedFileCard
+                    key={`${file.file_path}-${i}`}
+                    file={file}
+                    userId={user?.id || ""}
+                    sessionId={sessionId}
+                  />
+                ))}
+              </div>
+            )}
 
             {/* 时间戳 + 用户操作按钮 */}
             <div className="flex items-center gap-2">

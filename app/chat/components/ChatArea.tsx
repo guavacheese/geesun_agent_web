@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { getSessionMessages, editSessionMessage } from "@/lib/api-client";
 import { streamChat } from "@/lib/sse-client";
 import { useAuth } from "@/components/AuthProvider";
-import type { Message, SSEMessage, AgentStatus, ToolCall, ChatRequest, ModelOverride } from "@/lib/types";
+import type { Message, SSEMessage, AgentStatus, ToolCall, ChatRequest, ModelOverride, GeneratedFile } from "@/lib/types";
+import { inferFileType } from "@/lib/types";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { ToolCallCard } from "./ToolCallCard";
@@ -27,21 +28,38 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
   const [selectedModel, setSelectedModel] = useState<ModelOverride | null>(null);
   const { user } = useAuth();
   const abortRef = useRef<(() => void) | null>(null);
+  // 按 sessionId 缓存消息，切换会话时不丢失未保存的流式输出
+  const messagesCache = useRef<Record<string, Message[]>>({});
+  const previousSessionRef = useRef<string | null>(null);
 
-  // 加载历史消息
+  // 加载历史消息（优先从后端，回退到缓存）
   useEffect(() => {
+    // 保存当前会话消息到缓存
+    setMessages((current) => {
+      if (previousSessionRef.current) {
+        messagesCache.current[previousSessionRef.current] = current;
+      }
+      previousSessionRef.current = sessionId;
+      // 如果缓存中有，先展示缓存（用户体验更流畅）
+      return messagesCache.current[sessionId] || [];
+    });
+
     let cancelled = false;
     setIsLoading(true);
 
     getSessionMessages(sessionId)
       .then((msgs) => {
         if (!cancelled) {
-          setMessages(msgs);
+          // 后端返回的消息优先于缓存（可能包含了已完成的流式输出）
+          if (msgs.length > 0) {
+            setMessages(msgs);
+            messagesCache.current[sessionId] = msgs;
+          }
           setToolCalls([]);
         }
       })
       .catch(() => {
-        if (!cancelled) setMessages([]);
+        // 后端失败时保留缓存中的消息
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -134,6 +152,31 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
                 return updated;
               });
               break;
+
+            case "file_generated":
+              if (event.file_path && event.file_name) {
+                const file: GeneratedFile = {
+                  file_name: event.file_name,
+                  file_path: event.file_path,
+                  file_size: event.file_size || 0,
+                  file_type: inferFileType(event.file_name),
+                };
+                setMessages((prev) => {
+                  if (prev.length === 0) return prev;
+                  const lastIdx = prev.length - 1;
+                  const last = prev[lastIdx];
+                  // 只附加到 AI 角色的消息上
+                  if (last.role !== "ai") return prev;
+                  const updated = {
+                    ...last,
+                    generated_files: [...(last.generated_files || []), file],
+                  };
+                  const result = [...prev];
+                  result[lastIdx] = updated;
+                  return result;
+                });
+              }
+              break;
           }
         },
         onDone: () => {
@@ -219,12 +262,13 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
     [sessionId, selectedModel, isStreaming, runStream]
   );
 
-  // 退出时取消流
+  // 仅组件卸载时取消流（不再随 sessionId 变化触发，保证切换会话时流继续跑）
   useEffect(() => {
     return () => {
       abortRef.current?.();
     };
-  }, [sessionId]);
+  }, []);
+
 
   // 上传文件到后端
   const handleFileUpload = useCallback(
@@ -285,7 +329,7 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
         </div>
       )}
 
-      <MessageList messages={messages} onEdit={handleEditMessage} />
+      <MessageList messages={messages} sessionId={sessionId} onEdit={handleEditMessage} />
       <MessageInput
         onSend={handleSend}
         disabled={isStreaming}
