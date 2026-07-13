@@ -189,6 +189,7 @@ export interface MessageRaw {
   id?: string;
   role: string;
   content: string;
+  reasoning?: string;
   created_at?: string;
 }
 
@@ -235,6 +236,7 @@ export function adaptMessagesResponse(raw: MessagesResponseRaw): Message[] {
     id: m.id || `msg-${_msgIdx++}-${i}`,
     role: m.role as MessageRole,
     content: m.content,
+    reasoning: m.reasoning,
     created_at: m.created_at,
   }));
 }
