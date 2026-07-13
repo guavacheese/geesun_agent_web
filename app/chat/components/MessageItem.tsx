@@ -141,23 +141,23 @@ export function MessageItem({ message, sessionId, toolCalls, isStreaming, onEdit
           </form>
         ) : (
           <>
-            {/* 气泡 */}
+            {/* 气泡 — AI 消息固定宽度，用户消息自适应内容 */}
             <div
-              className={`relative w-fit max-w-full min-w-0 rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+              className={`relative ${isUser ? "w-fit" : "w-full"} max-w-full min-w-0 rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                 isUser
                   ? "bg-primary text-primary-foreground rounded-tr-md"
                   : "bg-muted text-foreground rounded-tl-md"
               }`}
             >
-              {/* 推理/思考过程（默认折叠） */}
+              {/* 推理/思考过程（默认折叠） — 宽度始终与气泡一致 */}
               {!isUser && message.reasoning && (
-                <details className="mb-2 w-fit max-w-full min-w-0 rounded-lg border border-muted/40 bg-muted/20 group/reasoning">
+                <details className="mb-2 w-full rounded-lg border border-muted/40 bg-muted/20 group/reasoning">
                   <summary className="cursor-pointer px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground select-none [&::-webkit-details-marker]:hidden flex items-center gap-1.5">
                     <ChevronRight className="h-3 w-3 transition-transform group-open/reasoning:rotate-90" />
                     <Brain className="h-3 w-3" />
                     <span>思考过程</span>
                   </summary>
-                  <div className="mt-1 max-h-48 max-w-full overflow-auto px-3 pb-2 font-mono text-[11px] text-muted-foreground/80 whitespace-pre-wrap break-all">
+                  <div className="mt-1 max-h-64 overflow-y-auto px-3 pb-2 font-mono text-[11px] text-muted-foreground/80 whitespace-pre-wrap break-all">
                     {message.reasoning}
                   </div>
                 </details>
