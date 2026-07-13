@@ -151,16 +151,14 @@ export function MessageItem({ message, sessionId, toolCalls, isStreaming, onEdit
             >
               {/* 推理/思考过程（默认折叠） */}
               {!isUser && message.reasoning && (
-                <details className="mb-2 rounded-lg border border-muted/40 bg-muted/20">
-                  <summary className="cursor-pointer px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground select-none [&::-webkit-details-marker]:hidden">
-                    <span className="flex items-center gap-1">
-                      <Brain className="h-3 w-3" />
-                      <span>思考过程</span>
-                    </span>
+                <details className="mb-2 rounded-lg border border-muted/40 bg-muted/20 group">
+                  <summary className="cursor-pointer px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground select-none [&::-webkit-details-marker]:hidden flex items-center gap-1">
+                    <Brain className="h-3 w-3" />
+                    <span>思考过程</span>
                   </summary>
-                  <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-all px-3 pb-2 font-mono text-[11px] text-muted-foreground/80">
+                  <div className="mt-1 max-h-48 overflow-y-auto px-3 pb-2 font-mono text-[11px] text-muted-foreground/80 whitespace-pre-wrap break-all">
                     {message.reasoning}
-                  </pre>
+                  </div>
                 </details>
               )}
 
