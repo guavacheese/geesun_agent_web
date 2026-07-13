@@ -119,6 +119,31 @@ export function ChatArea({ sessionId, refreshKey, onStreamDone }: ChatAreaProps)
               }
               break;
 
+            case "reasoning":
+              if (event.content) {
+                // reasoning 内容只存入 message.reasoning，不影响 message.content
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const last = updated[updated.length - 1];
+                  if (last?.role === "ai") {
+                    updated[updated.length - 1] = {
+                      ...last,
+                      reasoning: (last.reasoning || "") + event.content,
+                    };
+                  } else {
+                    updated.push({
+                      id: `ai-${Date.now()}`,
+                      role: "ai",
+                      content: "",
+                      reasoning: event.content,
+                      created_at: new Date().toISOString(),
+                    });
+                  }
+                  return updated;
+                });
+              }
+              break;
+
             case "tool_call":
               setToolCalls((prev) => [
                 ...prev,

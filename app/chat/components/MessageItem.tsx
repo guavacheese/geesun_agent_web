@@ -4,7 +4,7 @@ import { useState, type KeyboardEvent, type FormEvent } from "react";
 import { type Message, type ToolCall } from "@/lib/types";
 import { useAuth } from "@/components/AuthProvider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Bot, Copy, Check, Pencil } from "lucide-react";
+import { User, Bot, Copy, Check, Pencil, Brain } from "lucide-react";
 import { GeneratedFileCard } from "./GeneratedFileCard";
 import { ToolCallTimeline } from "./ToolCallTimeline";
 
@@ -149,6 +149,22 @@ export function MessageItem({ message, sessionId, toolCalls, isStreaming, onEdit
                   : "bg-muted text-foreground rounded-tl-md"
               }`}
             >
+              {/* 推理/思考过程（默认折叠） */}
+              {!isUser && message.reasoning && (
+                <details className="mb-2 rounded-lg border border-muted/40 bg-muted/20">
+                  <summary className="cursor-pointer px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground select-none [&::-webkit-details-marker]:hidden">
+                    <span className="flex items-center gap-1">
+                      <Brain className="h-3 w-3" />
+                      <span>思考过程</span>
+                    </span>
+                  </summary>
+                  <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-all px-3 pb-2 font-mono text-[11px] text-muted-foreground/80">
+                    {message.reasoning}
+                  </pre>
+                </details>
+              )}
+
+              {/* 实际回复内容 */}
               <p className="whitespace-pre-wrap break-words">{message.content}</p>
 
               {/* Agent Copy 按钮（垂直居中，始终可见） */}

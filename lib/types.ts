@@ -40,6 +40,7 @@ export interface Message {
   id: string;
   role: MessageRole;
   content: string;
+  reasoning?: string; // 模型的推理/思考过程，与 content 分离渲染
   tool_calls?: ToolCall[];
   generated_files?: GeneratedFile[];
   created_at?: string;
@@ -68,6 +69,7 @@ export interface ToolCall {
 export type SSEEventType =
   | "agent_status"
   | "token"
+  | "reasoning" // 模型的推理/思考内容，与 token 分离
   | "tool_call"
   | "tool_result"
   | "file_generated"
