@@ -105,8 +105,8 @@ export function MessageItem({ message, sessionId, toolCalls, isStreaming, onEdit
         )}
       </div>
 
-      {/* 内容列 */}
-      <div className={`relative max-w-[80%] min-w-0 flex flex-col gap-1 ${isUser ? "items-end" : "items-start"}`}>
+      {/* 内容列 — AI 消息用 flex-1 占满剩余空间，保证宽度不随 reasoning 展开变化 */}
+      <div className={`relative ${isUser ? "" : "flex-1"} max-w-[80%] min-w-0 flex flex-col gap-1 ${isUser ? "items-end" : "items-start"}`}>
         {/* 用户名 */}
         <p className="h-7 flex items-center text-[11px] text-muted-foreground">
           {isUser ? (user?.id || "用户") : "Geesun Agent"}
