@@ -4,7 +4,7 @@ import { useState, type KeyboardEvent, type FormEvent } from "react";
 import { type Message, type ToolCall } from "@/lib/types";
 import { useAuth } from "@/components/AuthProvider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Bot, Copy, Check, Pencil, Brain } from "lucide-react";
+import { User, Bot, Copy, Check, Pencil, Brain, ChevronRight } from "lucide-react";
 import { GeneratedFileCard } from "./GeneratedFileCard";
 import { ToolCallTimeline } from "./ToolCallTimeline";
 
@@ -151,8 +151,9 @@ export function MessageItem({ message, sessionId, toolCalls, isStreaming, onEdit
             >
               {/* 推理/思考过程（默认折叠） */}
               {!isUser && message.reasoning && (
-                <details className="mb-2 rounded-lg border border-muted/40 bg-muted/20 group">
-                  <summary className="cursor-pointer px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground select-none [&::-webkit-details-marker]:hidden flex items-center gap-1">
+                <details className="mb-2 rounded-lg border border-muted/40 bg-muted/20 group/reasoning">
+                  <summary className="cursor-pointer px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground select-none [&::-webkit-details-marker]:hidden flex items-center gap-1.5">
+                    <ChevronRight className="h-3 w-3 transition-transform group-open/reasoning:rotate-90" />
                     <Brain className="h-3 w-3" />
                     <span>思考过程</span>
                   </summary>
