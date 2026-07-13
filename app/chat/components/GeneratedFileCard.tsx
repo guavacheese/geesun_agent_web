@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { GeneratedFile } from "@/lib/types";
 import { FilePreviewModal } from "./FilePreviewModal";
 import { FileText, Image, FileSpreadsheet, FileArchive, File } from "lucide-react";
+import { getToken } from "@/lib/auth";
 
 interface GeneratedFileCardProps {
   file: GeneratedFile;
@@ -64,13 +65,25 @@ export function GeneratedFileCard({ file, userId, sessionId }: GeneratedFileCard
   const sizeLabel = formatFileSize(file.file_size);
   const canPreview = ["text", "code", "image", "pdf"].includes(file.file_type);
 
-  const handleDownload = () => {
-    const a = document.createElement("a");
-    a.href = downloadUrl;
-    a.download = file.file_name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const handleDownload = async () => {
+    try {
+      const token = getToken();
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(downloadUrl, { headers });
+      if (!res.ok) throw new Error(`下载失败 (${res.status})`);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = file.file_name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
+    } catch (e) {
+      console.error("下载失败:", e);
+    }
   };
 
   return (

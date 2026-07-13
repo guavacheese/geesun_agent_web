@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import type { GeneratedFile } from "@/lib/types";
 import { X, Download, FileText } from "lucide-react";
+import { getToken } from "@/lib/auth";
 
 interface FilePreviewModalProps {
   open: boolean;
@@ -11,6 +12,32 @@ interface FilePreviewModalProps {
   downloadUrl: string;
   userId: string;
   sessionId: string;
+}
+
+/** 带 Authorization header 的 fetch */
+async function authFetch(url: string): Promise<Response> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  const res = await fetch(url, { headers });
+  if (!res.ok) throw new Error(`加载失败 (${res.status})`);
+  return res;
+}
+
+/** 通过 fetch blob 触发文件下载 */
+async function downloadWithAuth(url: string, filename: string): Promise<void> {
+  const res = await authFetch(url);
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
 }
 
 export function FilePreviewModal({
@@ -22,32 +49,28 @@ export function FilePreviewModal({
   const [textContent, setTextContent] = useState<string | null>(null);
   const [textLoading, setTextLoading] = useState(false);
   const [textError, setTextError] = useState<string | null>(null);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const prevBlobUrlRef = useRef<string | null>(null);
 
-  // 按 ESC 关闭
+  // 组件卸载时释放 blob URL
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    if (open) {
-      document.addEventListener("keydown", handleKey);
-      document.body.style.overflow = "hidden";
-    }
     return () => {
-      document.removeEventListener("keydown", handleKey);
-      document.body.style.overflow = "";
+      if (prevBlobUrlRef.current) {
+        URL.revokeObjectURL(prevBlobUrlRef.current);
+      }
     };
-  }, [open, onClose]);
+  }, []);
 
   // 文本/代码文件：加载内容
   const loadTextContent = useCallback(async () => {
     if (file.file_type !== "text" && file.file_type !== "code") return;
-    if (textContent !== null) return; // 已加载，不重复请求
+    if (textContent !== null) return;
 
     setTextLoading(true);
     setTextError(null);
     try {
-      const res = await fetch(downloadUrl);
-      if (!res.ok) throw new Error(`加载失败 (${res.status})`);
+      const res = await authFetch(downloadUrl);
       const text = await res.text();
       setTextContent(text);
     } catch (e) {
@@ -57,11 +80,39 @@ export function FilePreviewModal({
     }
   }, [file.file_type, downloadUrl, textContent]);
 
+  // 图片/PDF：加载 blob 数据用于预览
+  const loadPreviewBlob = useCallback(async () => {
+    if (file.file_type !== "image" && file.file_type !== "pdf") return;
+    if (previewBlobUrl) return;
+
+    setPreviewLoading(true);
+    setTextError(null);
+    try {
+      const res = await authFetch(downloadUrl);
+      const blob = await res.blob();
+      if (prevBlobUrlRef.current) {
+        URL.revokeObjectURL(prevBlobUrlRef.current);
+      }
+      const url = URL.createObjectURL(blob);
+      prevBlobUrlRef.current = url;
+      setPreviewBlobUrl(url);
+    } catch (e) {
+      setTextError(e instanceof Error ? e.message : "加载失败");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [file.file_type, downloadUrl, previewBlobUrl]);
+
   useEffect(() => {
     if (open) {
       loadTextContent();
+      loadPreviewBlob();
     }
-  }, [open, loadTextContent]);
+  }, [open, loadTextContent, loadPreviewBlob]);
+
+  const handleDownload = useCallback(() => {
+    downloadWithAuth(downloadUrl, file.file_name);
+  }, [downloadUrl, file.file_name]);
 
   if (!open) return null;
 
@@ -79,7 +130,6 @@ export function FilePreviewModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={(e) => {
-        // 点击遮罩关闭
         if (e.target === e.currentTarget) onClose();
       }}
     >
@@ -94,14 +144,13 @@ export function FilePreviewModal({
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <a
-              href={downloadUrl}
-              download={file.file_name}
+            <button
+              onClick={handleDownload}
               className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
             >
               <Download className="h-3.5 w-3.5" />
               下载
-            </a>
+            </button>
             <button
               onClick={onClose}
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
@@ -113,6 +162,21 @@ export function FilePreviewModal({
 
         {/* ─── 内容区 ─── */}
         <div className="flex-1 overflow-auto p-4">
+          {/* 加载提示（非文本类型） */}
+          {previewLoading && (
+            <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
+              <span className="ml-2">加载中...</span>
+            </div>
+          )}
+
+          {/* 错误提示 */}
+          {textError && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              {textError}
+            </div>
+          )}
+
           {/* 文本/代码 */}
           {(file.file_type === "text" || file.file_type === "code") && (
             <div className="h-full">
@@ -120,11 +184,6 @@ export function FilePreviewModal({
                 <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
                   <span className="ml-2">加载中...</span>
-                </div>
-              )}
-              {textError && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                  {textError}
                 </div>
               )}
               {textContent !== null && (
@@ -136,11 +195,11 @@ export function FilePreviewModal({
           )}
 
           {/* 图片 */}
-          {file.file_type === "image" && (
+          {file.file_type === "image" && previewBlobUrl && (
             <div className="flex items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={downloadUrl}
+                src={previewBlobUrl}
                 alt={file.file_name}
                 className="max-h-[70vh] max-w-full rounded-lg object-contain"
               />
@@ -148,9 +207,9 @@ export function FilePreviewModal({
           )}
 
           {/* PDF */}
-          {file.file_type === "pdf" && (
+          {file.file_type === "pdf" && previewBlobUrl && (
             <iframe
-              src={downloadUrl}
+              src={previewBlobUrl}
               className="h-[70vh] w-full rounded-lg border border-border"
               title={file.file_name}
             />
@@ -166,14 +225,13 @@ export function FilePreviewModal({
               <p className="mb-4 text-xs text-muted-foreground/60">
                 请下载后使用本地应用查看
               </p>
-              <a
-                href={downloadUrl}
-                download={file.file_name}
+              <button
+                onClick={handleDownload}
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 <Download className="h-4 w-4" />
                 下载文件
-              </a>
+              </button>
             </div>
           )}
         </div>
