@@ -151,7 +151,7 @@ export function MessageItem({ message, sessionId, toolCalls, isStreaming, onEdit
             >
               {/* 推理/思考过程（默认折叠） */}
               {!isUser && message.reasoning && (
-                <details className="mb-2 rounded-lg border border-muted/40 bg-muted/20 group/reasoning">
+                <details className="mb-2 w-full rounded-lg border border-muted/40 bg-muted/20 group/reasoning">
                   <summary className="cursor-pointer px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground select-none [&::-webkit-details-marker]:hidden flex items-center gap-1.5">
                     <ChevronRight className="h-3 w-3 transition-transform group-open/reasoning:rotate-90" />
                     <Brain className="h-3 w-3" />
